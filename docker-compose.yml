@@ -1,0 +1,55 @@
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    command: redis-server --save 60 1 --loglevel warning
+    expose:
+      - "6379"
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: nginx-proxy
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    networks:
+      - app-networks
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./springboot
+      dockerfile: Dockerfile
+    container_name: springboot-backend
+    env_file:
+      - ./springboot/.env
+    expose: "8080"
+    healthcheck:
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - app-networks
+
+networks:
+  app-networks:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
