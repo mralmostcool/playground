@@ -45,7 +45,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "mapping, health, scalar"
+        include: "*"
 
 scalar: 
   enabled: true
