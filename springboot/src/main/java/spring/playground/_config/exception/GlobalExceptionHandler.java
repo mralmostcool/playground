@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import spring.playground._config.exception.resource.NotFoundException;
 
@@ -27,6 +28,15 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotFoundException.class)
     public ErrorResponse handleResourceNotFoundException(NotFoundException e) {
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.NOT_FOUND.value(),
+                e.getMessage(),
+                Instant.now());
+        return error;
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ErrorResponse handleNoResourceFoundException(NoResourceFoundException e) {
         ErrorResponse error = new ErrorResponse(
                 HttpStatus.NOT_FOUND.value(),
                 e.getMessage(),
