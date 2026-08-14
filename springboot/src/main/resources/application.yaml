@@ -1,4 +1,5 @@
 spring:
+
   application:
     name: management
 
@@ -32,6 +33,10 @@ spring:
     location: classpath:db/migration
     schemas: public
 
+  mvc:
+    pathmatch:
+      trailing-slash: true
+
 server:
   port: 8080
 
@@ -45,7 +50,7 @@ management:
   endpoints:
     web:
       exposure:
-        include: "*"
+        include: "health,info"
 
 scalar: 
   enabled: true
@@ -53,3 +58,4 @@ scalar:
   theme: "deepSpace"
   documentDownloadType: "both"
   actuatorEnabled: true
+  scalarUrl: "/scalar"
