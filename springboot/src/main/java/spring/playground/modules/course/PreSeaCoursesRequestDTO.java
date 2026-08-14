@@ -1,6 +1,6 @@
 package spring.playground.modules.course;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDate;
 import java.util.UUID;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -26,7 +26,7 @@ public class PreSeaCoursesRequestDTO {
     private Boolean isActive;
 
     @NotNull(message = "Start date is required")
-    private OffsetDateTime startDate;
+    private LocalDate startDate;
 
     private UUID instituteId;
 }

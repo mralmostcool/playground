@@ -1,5 +1,6 @@
 package spring.playground.modules.course;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -42,7 +43,7 @@ public class PreSeaCourses {
     private Boolean isActive;
 
     @Column(name = "start_date", nullable = false)
-    private OffsetDateTime startDate;
+    private LocalDate startDate;
 
     @ManyToOne
     @JoinColumn(name = "institute_id", nullable = true)

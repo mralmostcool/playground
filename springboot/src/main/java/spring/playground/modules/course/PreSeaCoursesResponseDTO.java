@@ -1,5 +1,6 @@
 package spring.playground.modules.course;
 
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ public class PreSeaCoursesResponseDTO {
     private UUID id;
     private String name;
     private Boolean isActive;
-    private OffsetDateTime startDate;
+    private LocalDate startDate;
     private UUID instituteId;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
