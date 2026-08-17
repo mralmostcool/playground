@@ -1,26 +1,307 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-primary: #cc785c;
+  --color-primary-active: #a9583e;
+  --color-primary-disabled: #e6dfd8;
+  --color-ink: #141413;
+  --color-body-text: #3d3d3a;
+  --color-body-strong: #252523;
+  --color-muted: #6c6a64;
+  --color-muted-soft: #8e8b82;
+  --color-hairline: #e6dfd8;
+  --color-hairline-soft: #ebe6df;
+  --color-canvas: #faf9f5;
+  --color-surface-soft: #f5f0e8;
+  --color-surface-card: #efe9de;
+  --color-surface-cream-strong: #e8e0d2;
+  --color-surface-dark: #181715;
+  --color-surface-dark-elevated: #252320;
+  --color-surface-dark-soft: #1f1e1b;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #faf9f5;
+  --color-on-dark-soft: #a09d96;
+  --color-accent-teal: #5db8a6;
+  --color-accent-amber: #e8a55a;
+  --color-success: #5db872;
+  --color-warning: #d4a017;
+  --color-error: #c64545;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-primary: var(--color-primary);
+  --color-primary-active: var(--color-primary-active);
+  --color-primary-disabled: var(--color-primary-disabled);
+  --color-ink: var(--color-ink);
+  --color-body-text: var(--color-body-text);
+  --color-body-strong: var(--color-body-strong);
+  --color-muted: var(--color-muted);
+  --color-muted-soft: var(--color-muted-soft);
+  --color-hairline: var(--color-hairline);
+  --color-hairline-soft: var(--color-hairline-soft);
+  --color-canvas: var(--color-canvas);
+  --color-surface-soft: var(--color-surface-soft);
+  --color-surface-card: var(--color-surface-card);
+  --color-surface-cream-strong: var(--color-surface-cream-strong);
+  --color-surface-dark: var(--color-surface-dark);
+  --color-surface-dark-elevated: var(--color-surface-dark-elevated);
+  --color-surface-dark-soft: var(--color-surface-dark-soft);
+  --color-on-primary: var(--color-on-primary);
+  --color-on-dark: var(--color-on-dark);
+  --color-on-dark-soft: var(--color-on-dark-soft);
+  --color-accent-teal: var(--color-accent-teal);
+  --color-accent-amber: var(--color-accent-amber);
+  --color-success: var(--color-success);
+  --color-warning: var(--color-warning);
+  --color-error: var(--color-error);
+
+  --font-serif: var(--font-serif), Cormorant Garamond, Georgia, serif;
+  --font-sans: var(--font-sans), Inter, system-ui, sans-serif;
+  --font-mono: var(--font-mono), JetBrains Mono, monospace;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  --spacing-xxs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 12px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+  --spacing-section: 96px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base styles override */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-canvas) !important;
+  color: var(--color-body-text) !important;
+  font-family: var(--font-sans) !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif) !important;
+  color: var(--color-ink) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.02em !important;
+}
+
+/* Forms & Inputs styling overrides to match design token {component.text-input} */
+input:not([type]),
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="tel"],
+input[type="url"],
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"],
+select,
+textarea {
+  background-color: var(--color-canvas) !important;
+  color: var(--color-ink) !important;
+  font-family: var(--font-sans) !important;
+  border: 1px solid var(--color-muted) !important; /* WCAG SC 1.4.11: 3:1 minimum contrast */
+  border-radius: var(--radius-md) !important;
+  padding: 10px 14px !important;
+  height: 40px !important;
+  font-size: 14px !important;
+  line-height: 1.55 !important;
+  outline: none !important;
+  transition: all 0.2s ease-in-out !important;
+}
+
+/* Explicitly override background and border for inputs/selects/textareas using bg-gray-50 or bg-white to ensure WCAG compliance */
+input.bg-gray-50,
+input.bg-white,
+select.bg-gray-50,
+select.bg-white,
+textarea.bg-gray-50,
+textarea.bg-white {
+  background-color: var(--color-canvas) !important;
+  border: 1px solid var(--color-muted) !important; /* WCAG SC 1.4.11: 3:1 minimum contrast */
+  color: var(--color-ink) !important;
+}
+
+/* WCAG SC 1.4.3: Ensure placeholder text has at least 4.5:1 contrast ratio */
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-muted) !important;
+  opacity: 1 !important;
+}
+
+input[type="checkbox"] {
+  accent-color: var(--color-primary) !important;
+  width: 16px !important;
+  height: 16px !important;
+}
+
+/* Focus state override */
+input:not([type]):focus,
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="password"]:focus,
+input[type="search"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus,
+input[type="date"]:focus,
+input[type="datetime-local"]:focus,
+input[type="time"]:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 0 0 3px rgba(208, 120, 92, 0.15) !important;
+}
+
+/* Container panel background styling */
+.bg-white,
+.bg-zinc-50,
+.bg-gray-50 {
+  background-color: var(--color-surface-card) !important;
+  border: 1px solid var(--color-hairline-soft) !important;
+  border-radius: var(--radius-lg) !important;
+}
+
+/* Button stylings */
+/* Replace bg-blue-600 with coral primary CTA button */
+button.bg-blue-600,
+a.bg-blue-600,
+button.bg-foreground {
+  background-color: var(--color-primary) !important;
+  color: var(--color-on-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-md) !important;
+  padding: 12px 20px !important;
+  height: 40px !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.2s ease !important;
+  box-shadow: none !important;
+}
+
+button.bg-blue-600:hover,
+a.bg-blue-600:hover,
+button.bg-foreground:hover {
+  background-color: var(--color-primary-active) !important;
+}
+
+button.bg-blue-600:disabled,
+a.bg-blue-600:disabled {
+  background-color: var(--color-primary-disabled) !important;
+  color: var(--color-muted) !important;
+  cursor: not-allowed !important;
+}
+
+/* Replace bg-green-600 with teal success button */
+button.bg-green-600,
+a.bg-green-600 {
+  background-color: var(--color-accent-teal) !important;
+  color: var(--color-on-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-md) !important;
+  padding: 12px 20px !important;
+  height: 40px !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: opacity 0.2s ease !important;
+}
+button.bg-green-600:hover,
+a.bg-green-600:hover {
+  opacity: 0.9 !important;
+}
+
+/* Delete / Red buttons */
+button.bg-red-600,
+a.bg-red-600 {
+  background-color: var(--color-error) !important;
+  color: var(--color-on-primary) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 14px !important;
+  border-radius: var(--radius-md) !important;
+  padding: 8px 14px !important;
+  height: auto !important;
+  border: none !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: opacity 0.2s ease !important;
+}
+button.bg-red-600:hover,
+a.bg-red-600:hover {
+  opacity: 0.9 !important;
+}
+
+/* Table overrides to match {component.feature-card} and {component.model-comparison-card} style */
+table {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  background-color: var(--color-canvas) !important;
+  border: 1px solid var(--color-hairline) !important;
+  border-radius: var(--radius-lg) !important;
+  overflow: hidden !important;
+  font-family: var(--font-sans) !important;
+}
+
+thead {
+  background-color: var(--color-surface-card) !important;
+}
+
+th {
+  color: var(--color-ink) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--color-hairline) !important;
+}
+
+td {
+  color: var(--color-body-text) !important;
+  font-size: 14px !important;
+  padding: 14px 16px !important;
+  border-bottom: 1px solid var(--color-hairline-soft) !important;
+}
+
+tr:last-child td {
+  border-bottom: none !important;
+}
+
+tr:hover td {
+  background-color: var(--color-surface-soft) !important;
+}
+
+/* Scrollbar styles to match editor chrome */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-canvas);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-hairline);
+  border-radius: var(--radius-sm);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-muted-soft);
 }
