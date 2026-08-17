@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +45,13 @@ public class IndosMasterController {
             @PathVariable UUID id,
             @Valid @RequestBody IndosMasterRequestDTO requestDTO) {
         return ResponseEntity.ok(indosMasterServices.updateIndos(id, requestDTO));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<IndosMasterResponseDTO> patchIndos(
+            @PathVariable UUID id,
+            @Valid @RequestBody IndosMasterPatchRequestDTO requestDTO) {
+        return ResponseEntity.ok(indosMasterServices.patchIndos(id, requestDTO));
     }
 
     @DeleteMapping("/{id}")

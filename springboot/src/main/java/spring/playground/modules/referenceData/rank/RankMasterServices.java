@@ -47,6 +47,20 @@ public class RankMasterServices {
     }
 
     @Transactional
+    public RankMasterResponseDTO patchRank(UUID id, RankMasterPatchRequestDTO patchDTO) {
+        RankMaster entity = rankMasterRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Rank not found with id: " + id));
+        if (patchDTO.getName() != null) {
+            entity.setName(patchDTO.getName());
+        }
+        if (patchDTO.getLevel() != null) {
+            entity.setLevel(patchDTO.getLevel());
+        }
+        RankMaster saved = rankMasterRepository.save(entity);
+        return rankMasterMapper.toResponseDTO(saved);
+    }
+
+    @Transactional
     public void deleteRank(UUID id) {
         if (!rankMasterRepository.existsById(id)) {
             throw new NotFoundException("Rank not found with id: " + id);

@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +45,13 @@ public class RankMasterController {
             @PathVariable UUID id,
             @Valid @RequestBody RankMasterRequestDTO requestDTO) {
         return ResponseEntity.ok(rankMasterServices.updateRank(id, requestDTO));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<RankMasterResponseDTO> patchRank(
+            @PathVariable UUID id,
+            @Valid @RequestBody RankMasterPatchRequestDTO requestDTO) {
+        return ResponseEntity.ok(rankMasterServices.patchRank(id, requestDTO));
     }
 
     @DeleteMapping("/{id}")

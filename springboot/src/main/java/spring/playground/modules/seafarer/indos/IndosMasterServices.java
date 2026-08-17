@@ -59,6 +59,30 @@ public class IndosMasterServices {
     }
 
     @Transactional
+    public IndosMasterResponseDTO patchIndos(UUID id, IndosMasterPatchRequestDTO patchDTO) {
+        IndosMaster existing = indosMasterRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("INDoS master not found with id: " + id));
+
+        if (patchDTO.getIndos() != null) {
+            existing.setIndos(patchDTO.getIndos());
+        }
+        if (patchDTO.getFirstName() != null) {
+            existing.setFirstName(patchDTO.getFirstName());
+        }
+        if (patchDTO.getRankId() != null) {
+            RankMaster rank = rankMasterRepository.findById(patchDTO.getRankId())
+                    .orElseThrow(() -> new NotFoundException("Rank not found with id: " + patchDTO.getRankId()));
+            existing.setRank(rank);
+        }
+        if (patchDTO.getIsActive() != null) {
+            existing.setIsActive(patchDTO.getIsActive());
+        }
+
+        IndosMaster saved = indosMasterRepository.save(existing);
+        return indosMasterMapper.toResponseDTO(saved);
+    }
+
+    @Transactional
     public void deleteIndos(UUID id) {
         if (!indosMasterRepository.existsById(id)) {
             throw new NotFoundException("INDoS master not found with id: " + id);

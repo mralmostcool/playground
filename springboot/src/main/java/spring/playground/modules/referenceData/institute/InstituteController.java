@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -43,6 +44,12 @@ public class InstituteController {
     public ResponseEntity<InstituteResponseDTO> updateInstitute(@PathVariable UUID id,
             @Valid @RequestBody InstituteRequestDTO requestDTO) {
         return ResponseEntity.ok(instituteServices.updateInstitute(id, requestDTO));
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<InstituteResponseDTO> patchInstitute(@PathVariable UUID id,
+            @Valid @RequestBody InstitutePatchRequestDTO requestDTO) {
+        return ResponseEntity.ok(instituteServices.patchInstitute(id, requestDTO));
     }
 
     @DeleteMapping("/{id}")

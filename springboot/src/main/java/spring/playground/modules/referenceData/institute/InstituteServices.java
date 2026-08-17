@@ -56,6 +56,17 @@ public class InstituteServices {
     }
 
     @Transactional
+    public InstituteResponseDTO patchInstitute(UUID id, InstitutePatchRequestDTO patchDTO) {
+        Institute entity = instituteRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));
+        if (patchDTO.getName() != null) {
+            entity.setName(patchDTO.getName());
+        }
+        Institute updated = instituteRepository.saveAndFlush(entity);
+        return instituteMapper.toResponseDTO(updated);
+    }
+
+    @Transactional
     public void deleteInstitute(UUID id) {
         Institute institute = instituteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));
