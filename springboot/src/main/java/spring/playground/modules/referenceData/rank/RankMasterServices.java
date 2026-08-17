@@ -12,7 +12,6 @@ import spring.playground._config.exception.resource.NotFoundException;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class RankMasterServices {
 
     private final RankMasterRepository rankMasterRepository;

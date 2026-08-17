@@ -18,8 +18,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/ranks")
 @RequiredArgsConstructor
+@RequestMapping("/api/ranks")
 public class RankMasterController {
 
     private final RankMasterServices rankMasterServices;

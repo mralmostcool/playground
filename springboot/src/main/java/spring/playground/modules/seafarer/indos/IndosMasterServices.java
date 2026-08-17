@@ -14,7 +14,6 @@ import spring.playground.modules.referenceData.rank.RankMasterRepository;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class IndosMasterServices {
 
     private final IndosMasterRepository indosMasterRepository;
