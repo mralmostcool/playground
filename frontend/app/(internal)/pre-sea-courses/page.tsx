@@ -1,0 +1,72 @@
+"use client";
+import { useEffect, useState } from "react";
+import { getAllCourses, createCourse, deleteCourse, getAllInstitutes, PreSeaCoursesRequestDTO, PreSeaCoursesResponseDTO, InstituteResponseDTO } from "@/lib/apiClient";
+
+export default function CoursesPage() {
+  const [items, setItems] = useState<PreSeaCoursesResponseDTO[]>([]);
+  const [institutes, setInstitutes] = useState<InstituteResponseDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<PreSeaCoursesRequestDTO>({ name: "", isActive: true, startDate: "" });
+
+  const fetchData = async () => { setLoading(true); try { const [c, i] = await Promise.all([getAllCourses(), getAllInstitutes()]); setItems(c); setInstitutes(i); } catch (e: any) { setError(e.message); } finally { setLoading(false); } };
+  useEffect(() => { fetchData(); }, []);
+
+  const handleCreate = async () => {
+    try { await createCourse(form); setForm({ name: "", isActive: true, startDate: "" }); setShowForm(false); fetchData(); } catch (e: any) { setError(e.message); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this course?")) return;
+    try { await deleteCourse(id); setItems((p) => p.filter((v) => v.id !== id)); } catch (e: any) { alert(e.message); }
+  };
+
+  const instituteName = (id?: string) => institutes.find((i) => i.id === id)?.name ?? "—";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Pre-Sea Courses</h1>
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">{showForm ? "Cancel" : "+ Add Course"}</button>
+      </div>
+      {error && <p className="text-red-600">{error}</p>}
+      {showForm && (
+        <div className="p-4 bg-white dark:bg-gray-800 rounded shadow space-y-3">
+          <input placeholder="Course Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          <input type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          <select value={form.instituteId ?? ""} onChange={(e) => setForm({ ...form, instituteId: e.target.value || undefined })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <option value="">No institute</option>
+            {institutes.map((i) => <option key={i.id} value={i.id}>{i.name}</option>)}
+          </select>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
+          <button onClick={handleCreate} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Create</button>
+        </div>
+      )}
+      {loading ? <p>Loading...</p> : (
+        <table className="min-w-full table-auto border border-gray-200 dark:border-gray-700 rounded">
+          <thead className="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th className="px-4 py-2 text-left text-sm font-medium">Name</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Start Date</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Institute</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Active</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((v) => (
+              <tr key={v.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                <td className="px-4 py-2 text-sm">{v.name}</td>
+                <td className="px-4 py-2 text-sm">{v.startDate}</td>
+                <td className="px-4 py-2 text-sm">{instituteName(v.instituteId)}</td>
+                <td className="px-4 py-2 text-sm">{v.isActive ? "Yes" : "No"}</td>
+                <td className="px-4 py-2"><button onClick={() => handleDelete(v.id)} className="px-2 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition">Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}

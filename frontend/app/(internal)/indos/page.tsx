@@ -1,0 +1,72 @@
+"use client";
+import { useEffect, useState } from "react";
+import { getAllIndos, createIndos, deleteIndos, getAllRanks, IndosMasterRequestDTO, IndosMasterResponseDTO, RankMasterResponseDTO } from "@/lib/apiClient";
+
+export default function IndosPage() {
+  const [items, setItems] = useState<IndosMasterResponseDTO[]>([]);
+  const [ranks, setRanks] = useState<RankMasterResponseDTO[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState<IndosMasterRequestDTO>({ indos: "", firstName: "", rankId: "", isActive: true });
+
+  const fetchData = async () => { setLoading(true); try { const [d, r] = await Promise.all([getAllIndos(), getAllRanks()]); setItems(d); setRanks(r); } catch (e: any) { setError(e.message); } finally { setLoading(false); } };
+  useEffect(() => { fetchData(); }, []);
+
+  const handleCreate = async () => {
+    try { await createIndos(form); setForm({ indos: "", firstName: "", rankId: "", isActive: true }); setShowForm(false); fetchData(); } catch (e: any) { setError(e.message); }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this seafarer?")) return;
+    try { await deleteIndos(id); setItems((p) => p.filter((v) => v.id !== id)); } catch (e: any) { alert(e.message); }
+  };
+
+  const rankName = (id: string) => ranks.find((r) => r.id === id)?.name ?? id;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">INDOS Seafarers</h1>
+        <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition">{showForm ? "Cancel" : "+ Add Seafarer"}</button>
+      </div>
+      {error && <p className="text-red-600">{error}</p>}
+      {showForm && (
+        <div className="p-4 bg-white dark:bg-gray-800 rounded shadow space-y-3">
+          <input placeholder="INDOS (7 chars)" maxLength={7} value={form.indos} onChange={(e) => setForm({ ...form, indos: e.target.value })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          <input placeholder="First Name" value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100" />
+          <select value={form.rankId} onChange={(e) => setForm({ ...form, rankId: e.target.value })} className="w-full p-2 border rounded bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+            <option value="">Select Rank</option>
+            {ranks.map((r) => <option key={r.id} value={r.id}>{r.name} (Level {r.level})</option>)}
+          </select>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.isActive} onChange={(e) => setForm({ ...form, isActive: e.target.checked })} /> Active</label>
+          <button onClick={handleCreate} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition">Create</button>
+        </div>
+      )}
+      {loading ? <p>Loading...</p> : (
+        <table className="min-w-full table-auto border border-gray-200 dark:border-gray-700 rounded">
+          <thead className="bg-gray-100 dark:bg-gray-700">
+            <tr>
+              <th className="px-4 py-2 text-left text-sm font-medium">INDOS</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">First Name</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Rank</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Active</th>
+              <th className="px-4 py-2 text-left text-sm font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((v) => (
+              <tr key={v.id} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                <td className="px-4 py-2 text-sm font-mono">{v.indos}</td>
+                <td className="px-4 py-2 text-sm">{v.firstName}</td>
+                <td className="px-4 py-2 text-sm">{rankName(v.rankId)}</td>
+                <td className="px-4 py-2 text-sm">{v.isActive ? "Yes" : "No"}</td>
+                <td className="px-4 py-2"><button onClick={() => handleDelete(v.id)} className="px-2 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700 transition">Delete</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
