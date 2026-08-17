@@ -22,6 +22,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+      frontend:
+        condition: service_started
     ports:
       - "80:80"
     networks:
@@ -48,10 +50,12 @@ services:
       - app-networks
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: nextjs-frontend
-    ports:
-      - "3000:80"
+    expose:
+      - "3000"
     depends_on:
       - backend
     networks:
