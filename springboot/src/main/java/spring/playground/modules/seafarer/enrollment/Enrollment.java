@@ -46,7 +46,8 @@ public class Enrollment {
     private IndosMaster indosMaster;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "enrollment_status")
     @Builder.Default
     private EnrollmentStatus status = EnrollmentStatus.ENROLLED;
 

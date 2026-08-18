@@ -56,7 +56,8 @@ public class Contract {
     private BerthSeafarerAllocation berthSeafarerAllocation;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "contract_status")
     @Builder.Default
     private ContractStatus status = ContractStatus.DRAFT;
 

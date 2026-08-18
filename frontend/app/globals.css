@@ -1,6 +1,6 @@
 @import "tailwindcss";
 
-:root {
+@theme {
   --color-primary: #cc785c;
   --color-primary-active: #a9583e;
   --color-primary-disabled: #e6dfd8;
@@ -26,38 +26,10 @@
   --color-success: #5db872;
   --color-warning: #d4a017;
   --color-error: #c64545;
-}
 
-@theme {
-  --color-primary: var(--color-primary);
-  --color-primary-active: var(--color-primary-active);
-  --color-primary-disabled: var(--color-primary-disabled);
-  --color-ink: var(--color-ink);
-  --color-body-text: var(--color-body-text);
-  --color-body-strong: var(--color-body-strong);
-  --color-muted: var(--color-muted);
-  --color-muted-soft: var(--color-muted-soft);
-  --color-hairline: var(--color-hairline);
-  --color-hairline-soft: var(--color-hairline-soft);
-  --color-canvas: var(--color-canvas);
-  --color-surface-soft: var(--color-surface-soft);
-  --color-surface-card: var(--color-surface-card);
-  --color-surface-cream-strong: var(--color-surface-cream-strong);
-  --color-surface-dark: var(--color-surface-dark);
-  --color-surface-dark-elevated: var(--color-surface-dark-elevated);
-  --color-surface-dark-soft: var(--color-surface-dark-soft);
-  --color-on-primary: var(--color-on-primary);
-  --color-on-dark: var(--color-on-dark);
-  --color-on-dark-soft: var(--color-on-dark-soft);
-  --color-accent-teal: var(--color-accent-teal);
-  --color-accent-amber: var(--color-accent-amber);
-  --color-success: var(--color-success);
-  --color-warning: var(--color-warning);
-  --color-error: var(--color-error);
-
-  --font-serif: var(--font-serif), Cormorant Garamond, Georgia, serif;
-  --font-sans: var(--font-sans), Inter, system-ui, sans-serif;
-  --font-mono: var(--font-mono), JetBrains Mono, monospace;
+  --font-serif: var(--font-serif);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 
   --radius-xs: 4px;
   --radius-sm: 6px;
@@ -75,6 +47,7 @@
   --spacing-xxl: 48px;
   --spacing-section: 96px;
 }
+
 
 /* Base styles override */
 body {

@@ -37,7 +37,7 @@ export default function Home() {
           <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-ink leading-tight tracking-tight">
             The warm editorial portal for seafarer & berth management.
           </h1>
-          <p className="text-lg leading-relaxed text-body-text max-w-xl">
+          <p className="text-lg leading-relaxed text-body-text w-full max-w-[36rem]">
             A resilient, secure administrative suite engineered with Spring Boot 3.4 and Next.js. Intuitively orchestrate seafarer courses, manage vessel compliance, allocate berths, and review audit records from a warm, humanist environment.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-2">
@@ -89,7 +89,7 @@ CREATE TABLE berths (
       {/* Grid of Key Features */}
       <section id="modules" className="py-20 bg-surface-soft border-t border-b border-hairline px-6 md:px-12">
         <div className="max-w-6xl mx-auto w-full">
-          <div className="text-center mb-16 max-w-xl mx-auto flex flex-col gap-4">
+          <div className="text-center mb-16 w-full max-w-[36rem] mx-auto flex flex-col gap-4">
             <h2 className="text-3xl md:text-4xl font-serif text-ink">
               Engineered for absolute operational clarity.
             </h2>
@@ -173,7 +173,7 @@ CREATE TABLE berths (
         <h2 className="text-3xl md:text-4xl font-serif max-w-xl leading-tight">
           Coordinate seafarers, vessels, and berths smoothly.
         </h2>
-        <p className="text-on-primary/80 text-sm md:text-base max-w-md">
+        <p className="text-on-primary/80 text-sm md:text-base w-full max-w-[28rem]">
           Access the compliance console now. Manage ranks, enrollments, and active berths from one consolidated workflow.
         </p>
         <div className="pt-2">
