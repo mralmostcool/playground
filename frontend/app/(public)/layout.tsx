@@ -1,5 +1,6 @@
 import Breadcrumbs from "@/components/Breadcrumbs";
 import Link from "next/link";
+import { PublicLayoutProvider, PublicLayoutContent } from "./PublicLayoutClient";
 
 export const metadata = {
     title: "Maritime Portal",
@@ -10,9 +11,13 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     return (
         <div className="flex flex-col min-h-screen bg-canvas text-body-text font-sans selection:bg-primary/20 selection:text-primary">
             <Breadcrumbs />
-            <main className="flex-grow">
-                {children}
-            </main>
+            <PublicLayoutProvider>
+                <main className="flex-grow">
+                    <PublicLayoutContent>
+                        {children}
+                    </PublicLayoutContent>
+                </main>
+            </PublicLayoutProvider>
             {/* Dark Navy Footer */}
             <footer className="bg-surface-dark text-on-dark-soft py-16 px-6 md:px-12 border-t border-surface-dark-elevated">
                 <div className="max-w-6xl mx-auto w-full">

@@ -108,8 +108,24 @@ export type IndosMasterResponseDTO = IndosMasterRequestDTO & {
   updatedAt: string;
 };
 
+export type PaginatedResponse<T> = {
+  content: T[];
+  totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
+  first: boolean;
+  last: boolean;
+};
+
 export const getAllIndos = () => getJson<IndosMasterResponseDTO[]>("/indos");
 export const getIndos = (id: string) => getJson<IndosMasterResponseDTO>(`/indos/${id}`);
+export const getIndosByIndos = (indos: string) => getJson<IndosMasterResponseDTO>(`/indos/by-indos/${indos}`);
+export const getIndosPaginated = (page: number, size: number, search?: string) => {
+  let url = `/indos/page?page=${page}&size=${size}`;
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  return getJson<PaginatedResponse<IndosMasterResponseDTO>>(url);
+};
 export const createIndos = (d: IndosMasterRequestDTO) => sendJson<IndosMasterResponseDTO>("POST", "/indos", d);
 export const updateIndos = (id: string, d: IndosMasterRequestDTO) => sendJson<IndosMasterResponseDTO>("PUT", `/indos/${id}`, d);
 export const deleteIndos = (id: string) => sendJson<void>("DELETE", `/indos/${id}`);

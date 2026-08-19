@@ -7,6 +7,10 @@ import java.util.stream.Collectors;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,7 +28,10 @@ public class IndosMasterServices {
     private final IndosMasterMapper indosMasterMapper;
 
     @Transactional
-    @CacheEvict(value = "indos_all", allEntries = true)
+    @Caching(evict = {
+        @CacheEvict(value = "indos", allEntries = true),
+        @CacheEvict(value = "indos_all", allEntries = true)
+    })
     public IndosMasterResponseDTO createIndos(IndosMasterRequestDTO requestDTO) {
         RankMaster rank = rankMasterRepository.findById(requestDTO.getRankId())
                 .orElseThrow(() -> new NotFoundException("Rank not found with id: " + requestDTO.getRankId()));
@@ -48,9 +55,30 @@ public class IndosMasterServices {
         return indosMasterMapper.toResponseDTO(entity);
     }
 
+    @Cacheable(value = "indos", key = "#indos")
+    public IndosMasterResponseDTO getIndosByIndos(String indos) {
+        IndosMaster entity = indosMasterRepository.findByIndos(indos)
+                .orElseThrow(() -> new NotFoundException("INDoS master not found with INDOS: " + indos));
+        return indosMasterMapper.toResponseDTO(entity);
+    }
+
+    public Page<IndosMasterResponseDTO> getIndosPaginated(int page, int size, String search) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String searchVal = (search == null || search.trim().isEmpty()) ? null : search.trim();
+        
+        Page<IndosMaster> entities;
+        if (searchVal == null) {
+            entities = indosMasterRepository.findAll(pageable);
+        } else {
+            entities = indosMasterRepository.findAllWithSearch(searchVal, pageable);
+        }
+        
+        return entities.map(indosMasterMapper::toResponseDTO);
+    }
+
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos", allEntries = true),
         @CacheEvict(value = "indos_all", allEntries = true)
     })
     public IndosMasterResponseDTO updateIndos(UUID id, IndosMasterRequestDTO requestDTO) {
@@ -70,7 +98,7 @@ public class IndosMasterServices {
 
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos", allEntries = true),
         @CacheEvict(value = "indos_all", allEntries = true)
     })
     public IndosMasterResponseDTO patchIndos(UUID id, IndosMasterPatchRequestDTO patchDTO) {
@@ -98,7 +126,7 @@ public class IndosMasterServices {
 
     @Transactional
     @Caching(evict = {
-        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos", allEntries = true),
         @CacheEvict(value = "indos_all", allEntries = true)
     })
     public void deleteIndos(UUID id) {
