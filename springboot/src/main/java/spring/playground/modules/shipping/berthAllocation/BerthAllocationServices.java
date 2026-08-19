@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ public class BerthAllocationServices {
     private final BerthAllocationMapper berthAllocationMapper;
 
     @Transactional
+    @CacheEvict(value = "berth_allocations_all", allEntries = true)
     public BerthAllocationResponseDTO createAllocation(BerthAllocationRequestDTO requestDTO) {
         Berth berth = berthRepository.findById(requestDTO.getBerthId())
                 .orElseThrow(() -> new NotFoundException("Berth not found with id: " + requestDTO.getBerthId()));
@@ -37,12 +41,14 @@ public class BerthAllocationServices {
         return berthAllocationMapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "berth_allocations_all")
     public List<BerthAllocationResponseDTO> getAllAllocations() {
         return berthAllocationRepository.findAll().stream()
                 .map(berthAllocationMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "berth_allocations", key = "#id")
     public BerthAllocationResponseDTO getAllocationById(UUID id) {
         BerthAllocation entity = berthAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth allocation not found with id: " + id));
@@ -50,6 +56,10 @@ public class BerthAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_allocations", key = "#id"),
+        @CacheEvict(value = "berth_allocations_all", allEntries = true)
+    })
     public BerthAllocationResponseDTO updateAllocation(UUID id, BerthAllocationRequestDTO requestDTO) {
         BerthAllocation existing = berthAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth allocation not found with id: " + id));
@@ -69,6 +79,10 @@ public class BerthAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_allocations", key = "#id"),
+        @CacheEvict(value = "berth_allocations_all", allEntries = true)
+    })
     public BerthAllocationResponseDTO patchAllocation(UUID id, BerthAllocationPatchRequestDTO patchDTO) {
         BerthAllocation existing = berthAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth allocation not found with id: " + id));
@@ -95,6 +109,10 @@ public class BerthAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_allocations", key = "#id"),
+        @CacheEvict(value = "berth_allocations_all", allEntries = true)
+    })
     public void deleteAllocation(UUID id) {
         if (!berthAllocationRepository.existsById(id)) {
             throw new NotFoundException("Berth allocation not found with id: " + id);

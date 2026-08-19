@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ public class PreSeaCoursesServices {
     private final PreSeaCoursesMapper preSeaCoursesMapper;
 
     @Transactional
+    @CacheEvict(value = "courses_all", allEntries = true)
     public PreSeaCoursesResponseDTO createCourse(PreSeaCoursesRequestDTO requestDTO) {
         Institute institute = null;
         if (requestDTO.getInstituteId() != null) {
@@ -34,12 +38,14 @@ public class PreSeaCoursesServices {
         return preSeaCoursesMapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "courses_all")
     public List<PreSeaCoursesResponseDTO> getAllCourses() {
         return preSeaCoursesRepository.findAll().stream()
                 .map(preSeaCoursesMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "courses", key = "#id")
     public PreSeaCoursesResponseDTO getCourseById(UUID id) {
         PreSeaCourses entity = preSeaCoursesRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Course not found with id: " + id));
@@ -47,6 +53,10 @@ public class PreSeaCoursesServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "courses", key = "#id"),
+        @CacheEvict(value = "courses_all", allEntries = true)
+    })
     public PreSeaCoursesResponseDTO updateCourse(UUID id, PreSeaCoursesRequestDTO requestDTO) {
         PreSeaCourses existing = preSeaCoursesRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Course not found with id: " + id));
@@ -67,6 +77,10 @@ public class PreSeaCoursesServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "courses", key = "#id"),
+        @CacheEvict(value = "courses_all", allEntries = true)
+    })
     public PreSeaCoursesResponseDTO patchCourse(UUID id, PreSeaCoursesPatchRequestDTO patchDTO) {
         PreSeaCourses existing = preSeaCoursesRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Course not found with id: " + id));
@@ -91,6 +105,10 @@ public class PreSeaCoursesServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "courses", key = "#id"),
+        @CacheEvict(value = "courses_all", allEntries = true)
+    })
     public void deleteCourse(UUID id) {
         if (!preSeaCoursesRepository.existsById(id)) {
             throw new NotFoundException("Course not found with id: " + id);

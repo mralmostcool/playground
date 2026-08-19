@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +24,7 @@ public class IndosMasterServices {
     private final IndosMasterMapper indosMasterMapper;
 
     @Transactional
+    @CacheEvict(value = "indos_all", allEntries = true)
     public IndosMasterResponseDTO createIndos(IndosMasterRequestDTO requestDTO) {
         RankMaster rank = rankMasterRepository.findById(requestDTO.getRankId())
                 .orElseThrow(() -> new NotFoundException("Rank not found with id: " + requestDTO.getRankId()));
@@ -30,12 +34,14 @@ public class IndosMasterServices {
         return indosMasterMapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "indos_all")
     public List<IndosMasterResponseDTO> getAllIndos() {
         return indosMasterRepository.findAll().stream()
                 .map(indosMasterMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "indos", key = "#id")
     public IndosMasterResponseDTO getIndosById(UUID id) {
         IndosMaster entity = indosMasterRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("INDoS master not found with id: " + id));
@@ -43,6 +49,10 @@ public class IndosMasterServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos_all", allEntries = true)
+    })
     public IndosMasterResponseDTO updateIndos(UUID id, IndosMasterRequestDTO requestDTO) {
         IndosMaster existing = indosMasterRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("INDoS master not found with id: " + id));
@@ -59,6 +69,10 @@ public class IndosMasterServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos_all", allEntries = true)
+    })
     public IndosMasterResponseDTO patchIndos(UUID id, IndosMasterPatchRequestDTO patchDTO) {
         IndosMaster existing = indosMasterRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("INDoS master not found with id: " + id));
@@ -83,6 +97,10 @@ public class IndosMasterServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "indos", key = "#id"),
+        @CacheEvict(value = "indos_all", allEntries = true)
+    })
     public void deleteIndos(UUID id) {
         if (!indosMasterRepository.existsById(id)) {
             throw new NotFoundException("INDoS master not found with id: " + id);

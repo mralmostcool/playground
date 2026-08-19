@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,18 +21,21 @@ public class BerthServices {
     private final BerthMapper berthMapper;
 
     @Transactional
+    @CacheEvict(value = "berths_all", allEntries = true)
     public BerthResponseDTO createBerth(BerthRequestDTO requestDTO) {
         Berth entity = berthMapper.toEntity(requestDTO);
         Berth saved = berthRepository.save(entity);
         return berthMapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "berths_all")
     public List<BerthResponseDTO> getAllBerths() {
         return berthRepository.findAll().stream()
                 .map(berthMapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "berths", key = "#id")
     public BerthResponseDTO getBerthById(UUID id) {
         Berth entity = berthRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth not found with id: " + id));
@@ -37,6 +43,10 @@ public class BerthServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berths", key = "#id"),
+        @CacheEvict(value = "berths_all", allEntries = true)
+    })
     public BerthResponseDTO updateBerth(UUID id, BerthRequestDTO requestDTO) {
         Berth existing = berthRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth not found with id: " + id));
@@ -49,6 +59,10 @@ public class BerthServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berths", key = "#id"),
+        @CacheEvict(value = "berths_all", allEntries = true)
+    })
     public BerthResponseDTO patchBerth(UUID id, BerthPatchRequestDTO patchDTO) {
         Berth existing = berthRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth not found with id: " + id));
@@ -65,6 +79,10 @@ public class BerthServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berths", key = "#id"),
+        @CacheEvict(value = "berths_all", allEntries = true)
+    })
     public void deleteBerth(UUID id) {
         if (!berthRepository.existsById(id)) {
             throw new NotFoundException("Berth not found with id: " + id);

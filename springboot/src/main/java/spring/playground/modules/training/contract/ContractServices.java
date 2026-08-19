@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class ContractServices {
     private final ContractMapper mapper;
 
     @Transactional
+    @CacheEvict(value = "contracts_all", allEntries = true)
     public ContractResponseDTO createContract(ContractRequestDTO requestDTO) {
         IndosMaster indosMaster = indosMasterRepository.findById(requestDTO.getIndosMasterId())
                 .orElseThrow(() -> new NotFoundException("INDoS master not found with id: " + requestDTO.getIndosMasterId()));
@@ -50,12 +54,14 @@ public class ContractServices {
         return mapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "contracts_all")
     public List<ContractResponseDTO> getAllContracts() {
         return contractRepository.findAll().stream()
                 .map(mapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "contracts", key = "#id")
     public ContractResponseDTO getContractById(UUID id) {
         Contract entity = contractRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Contract not found with id: " + id));
@@ -63,6 +69,10 @@ public class ContractServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "contracts", key = "#id"),
+        @CacheEvict(value = "contracts_all", allEntries = true)
+    })
     public ContractResponseDTO updateContract(UUID id, ContractRequestDTO requestDTO) {
         Contract existing = contractRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Contract not found with id: " + id));
@@ -100,6 +110,10 @@ public class ContractServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "contracts", key = "#id"),
+        @CacheEvict(value = "contracts_all", allEntries = true)
+    })
     public ContractResponseDTO patchContract(UUID id, ContractPatchRequestDTO patchDTO) {
         Contract existing = contractRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Contract not found with id: " + id));
@@ -172,6 +186,10 @@ public class ContractServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "contracts", key = "#id"),
+        @CacheEvict(value = "contracts_all", allEntries = true)
+    })
     public void deleteContract(UUID id) {
         if (!contractRepository.existsById(id)) {
             throw new NotFoundException("Contract not found with id: " + id);

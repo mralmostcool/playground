@@ -6,6 +6,9 @@ import java.util.stream.Collectors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 
 import jakarta.transaction.Transactional;
@@ -22,6 +25,7 @@ public class InstituteServices {
     Logger logger = LoggerFactory.getLogger(InstituteServices.class);
 
     @Transactional
+    @CacheEvict(value = "institutes_all", allEntries = true)
     public InstituteResponseDTO createInstitute(InstituteRequestDTO requestDTO) {
         Institute institute = instituteMapper.toEntity(requestDTO);
         Institute saved = instituteRepository.save(institute);
@@ -31,6 +35,7 @@ public class InstituteServices {
         return instituteMapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "institutes_all")
     public List<InstituteResponseDTO> getAllInstitutes() {
         return instituteRepository
                 .findAll()
@@ -40,6 +45,7 @@ public class InstituteServices {
     }
 
     @Transactional
+    @Cacheable(value = "institutes", key = "#id")
     public InstituteResponseDTO getInstituteById(UUID id) {
         Institute institute = instituteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));
@@ -47,6 +53,10 @@ public class InstituteServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "institutes", key = "#id"),
+        @CacheEvict(value = "institutes_all", allEntries = true)
+    })
     public InstituteResponseDTO updateInstitute(UUID id, InstituteRequestDTO requestDTO) {
         Institute entity = instituteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));
@@ -56,6 +66,10 @@ public class InstituteServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "institutes", key = "#id"),
+        @CacheEvict(value = "institutes_all", allEntries = true)
+    })
     public InstituteResponseDTO patchInstitute(UUID id, InstitutePatchRequestDTO patchDTO) {
         Institute entity = instituteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));
@@ -67,6 +81,10 @@ public class InstituteServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "institutes", key = "#id"),
+        @CacheEvict(value = "institutes_all", allEntries = true)
+    })
     public void deleteInstitute(UUID id) {
         Institute institute = instituteRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Institute not found with id: " + id));

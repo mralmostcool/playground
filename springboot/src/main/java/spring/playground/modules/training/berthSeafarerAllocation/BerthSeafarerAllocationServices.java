@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,7 @@ public class BerthSeafarerAllocationServices {
     private final BerthSeafarerAllocationMapper mapper;
 
     @Transactional
+    @CacheEvict(value = "berth_seafarer_allocations_all", allEntries = true)
     public BerthSeafarerAllocationResponseDTO createAllocation(BerthSeafarerAllocationRequestDTO requestDTO) {
         Berth berth = berthRepository.findById(requestDTO.getBerthId())
                 .orElseThrow(() -> new NotFoundException("Berth not found with id: " + requestDTO.getBerthId()));
@@ -48,12 +52,14 @@ public class BerthSeafarerAllocationServices {
         return mapper.toResponseDTO(saved);
     }
 
+    @Cacheable(value = "berth_seafarer_allocations_all")
     public List<BerthSeafarerAllocationResponseDTO> getAllAllocations() {
         return berthSeafarerAllocationRepository.findAll().stream()
                 .map(mapper::toResponseDTO)
                 .collect(Collectors.toList());
     }
 
+    @Cacheable(value = "berth_seafarer_allocations", key = "#id")
     public BerthSeafarerAllocationResponseDTO getAllocationById(UUID id) {
         BerthSeafarerAllocation entity = berthSeafarerAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth seafarer allocation not found with id: " + id));
@@ -61,6 +67,10 @@ public class BerthSeafarerAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_seafarer_allocations", key = "#id"),
+        @CacheEvict(value = "berth_seafarer_allocations_all", allEntries = true)
+    })
     public BerthSeafarerAllocationResponseDTO updateAllocation(UUID id, BerthSeafarerAllocationRequestDTO requestDTO) {
         BerthSeafarerAllocation existing = berthSeafarerAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth seafarer allocation not found with id: " + id));
@@ -87,6 +97,10 @@ public class BerthSeafarerAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_seafarer_allocations", key = "#id"),
+        @CacheEvict(value = "berth_seafarer_allocations_all", allEntries = true)
+    })
     public BerthSeafarerAllocationResponseDTO patchAllocation(UUID id, BerthSeafarerAllocationPatchRequestDTO patchDTO) {
         BerthSeafarerAllocation existing = berthSeafarerAllocationRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Berth seafarer allocation not found with id: " + id));
@@ -118,6 +132,10 @@ public class BerthSeafarerAllocationServices {
     }
 
     @Transactional
+    @Caching(evict = {
+        @CacheEvict(value = "berth_seafarer_allocations", key = "#id"),
+        @CacheEvict(value = "berth_seafarer_allocations_all", allEntries = true)
+    })
     public void deleteAllocation(UUID id) {
         if (!berthSeafarerAllocationRepository.existsById(id)) {
             throw new NotFoundException("Berth seafarer allocation not found with id: " + id);
