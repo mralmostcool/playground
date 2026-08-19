@@ -2,7 +2,7 @@
 import Sidebar from "../../components/Sidebar";
 
 export const metadata = {
-  title: "Admin Dashboard | Aegir Maritime",
+  title: "Admin Dashboard | Maritime System",
   description: "Internal admin UI for managing backend data",
 };
 

@@ -21,7 +21,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aegir Marine System",
+  title: "Maritime System",
   description: "Seafarer and berth allocation management dashboard",
 };
 

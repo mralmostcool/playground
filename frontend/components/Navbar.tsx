@@ -19,11 +19,7 @@ export default function Navbar() {
     return (
         <header className="h-16 bg-canvas border-b border-hairline flex items-center justify-between px-6 md:px-12 sticky top-0 z-50">
             <Link href="/home" className="flex items-center gap-2 hover:opacity-95 transition-opacity">
-                {/* Radial Spike Brand Mark */}
-                <svg className="w-5 h-5 text-primary fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M12 2v20M2 12h20M5 5l14 14M19 5L5 19" />
-                </svg>
-                <span className="font-serif text-lg font-medium tracking-tight text-ink">Aegir Maritime</span>
+                <span className="font-serif text-lg font-medium tracking-tight text-ink">Portal</span>
             </Link>
             <nav className="flex items-center gap-8 text-sm font-medium">
                 {group.map((sec) => {
@@ -46,7 +42,10 @@ export default function Navbar() {
                     );
                 })}
             </nav>
-            <div>
+            <div className="flex items-center gap-3">
+                <Link href="/" className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-sm transition-colors">
+                    Gateway
+                </Link>
                 <Link href="/dashboard" className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-sm transition-colors shadow-none">
                     Console
                 </Link>
