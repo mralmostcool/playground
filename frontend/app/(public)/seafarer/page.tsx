@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { 
-  getIndosPaginated, 
-  getAllRanks, 
-  createIndos, 
-  IndosMasterRequestDTO, 
-  IndosMasterResponseDTO, 
+import {
+  getIndosPaginated,
+  getAllRanks,
+  createIndos,
+  IndosMasterRequestDTO,
+  IndosMasterResponseDTO,
   RankMasterResponseDTO
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../PublicLayoutClient";
@@ -111,7 +111,7 @@ export default function SeafarerPage() {
 
       // Reset form
       setForm({ indos: "", firstName: "", rankId: "", isActive: true });
-      
+
       // Auto close modal after a delay
       setTimeout(() => {
         setFormSuccess(null);
@@ -153,16 +153,6 @@ export default function SeafarerPage() {
                 <span className="text-[9px] text-muted-soft font-mono uppercase tracking-wider">Active on Page</span>
               </div>
             </div>
-          </div>
-
-          <div className="flex flex-col gap-2 text-xs text-muted p-1">
-            <h4 className="font-semibold text-body-strong">Compliance Standards</h4>
-            <p className="leading-relaxed text-muted-soft">
-              This public registry queries INDOS compliance records in real-time according to DG Shipping conventions.
-            </p>
-            <a href="#" className="text-primary hover:underline font-medium mt-1 inline-flex items-center gap-1">
-              Read INDOS Guidelines &rarr;
-            </a>
           </div>
         </div>
       </PublicLayoutSidebar>
@@ -232,9 +222,8 @@ export default function SeafarerPage() {
                         <td className="px-4 py-3.5 text-sm text-body-strong">{s.firstName}</td>
                         <td className="px-4 py-3.5 text-sm text-body-text">{getRankName(s.rankId)}</td>
                         <td className="px-4 py-3.5 text-sm">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
-                            s.isActive ? "bg-success/10 text-success" : "bg-muted/10 text-muted"
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${s.isActive ? "bg-success/10 text-success" : "bg-muted/10 text-muted"
+                            }`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${s.isActive ? "bg-success" : "bg-muted"}`}></span>
                             {s.isActive ? "Active" : "Inactive"}
                           </span>
@@ -281,7 +270,7 @@ export default function SeafarerPage() {
       {isAddModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
           <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-            
+
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
               <div>
