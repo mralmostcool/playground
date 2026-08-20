@@ -281,3 +281,9 @@ export type AuditLogsResponseDTO = {
 
 export const getAllAuditLogs = () => getJson<AuditLogsResponseDTO[]>("/audit-logs");
 export const getAuditLog = (id: string) => getJson<AuditLogsResponseDTO>(`/audit-logs/${id}`);
+
+export const toSlug = (name: string) => 
+  name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");

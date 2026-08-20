@@ -9,6 +9,7 @@ import {
   createInstitute,
   updateCourse,
   deleteCourse,
+  toSlug,
   PreSeaCoursesRequestDTO,
   PreSeaCoursesResponseDTO,
   InstituteRequestDTO,
@@ -212,8 +213,8 @@ export default function CoursesPage() {
     }
   };
 
-  const handleInstituteClick = (instId: string) => {
-    router.push(`/courses/${instId}`);
+  const handleInstituteClick = (inst: InstituteResponseDTO) => {
+    router.push(`/courses/${toSlug(inst.name)}`);
   };
 
   const handleEditClick = (course: PreSeaCoursesResponseDTO) => {
@@ -544,7 +545,7 @@ export default function CoursesPage() {
                         paginatedInstitutes.map((i) => (
                           <tr
                             key={i.id}
-                            onClick={() => handleInstituteClick(i.id)}
+                            onClick={() => handleInstituteClick(i)}
                             className="cursor-pointer transition-colors hover:bg-surface-soft/40"
                           >
                             <td className="px-4 py-3.5 text-sm font-medium text-body-strong">{i.name}</td>

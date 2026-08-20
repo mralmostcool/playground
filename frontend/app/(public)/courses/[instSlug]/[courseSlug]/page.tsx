@@ -4,13 +4,14 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  getInstitute,
-  getCourse,
+  getAllInstitutes,
+  getAllCourses,
   getAllEnrollments,
   getAllIndos,
   updateCourse,
   deleteCourse,
   updateEnrollment,
+  toSlug,
   InstituteResponseDTO,
   PreSeaCoursesResponseDTO,
   EnrollmentResponseDTO,
@@ -22,11 +23,15 @@ import { PublicLayoutHeader, PublicLayoutSidebar } from "../../../PublicLayoutCl
 export default function CourseDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string; // instituteId
-  const courseId = params.courseId as string;
+  const instSlug = params.instSlug as string;
+  const courseSlug = params.courseSlug as string;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Resolved IDs
+  const [id, setId] = useState<string | null>(null); // instituteId
+  const [courseId, setCourseId] = useState<string | null>(null); // courseId
 
   // Collections
   const [course, setCourse] = useState<PreSeaCoursesResponseDTO | null>(null);
@@ -43,7 +48,7 @@ export default function CourseDetailPage() {
     name: "",
     isActive: true,
     startDate: new Date().toISOString().split("T")[0],
-    instituteId: id
+    instituteId: ""
   });
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -57,18 +62,35 @@ export default function CourseDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const [liveCourse, liveInst, allEnrollments, allSeafarers] = await Promise.all([
-        getCourse(courseId),
-        getInstitute(id),
+      const [allInstitutes, allCourses, allEnrollments, allSeafarers] = await Promise.all([
+        getAllInstitutes(),
+        getAllCourses(),
         getAllEnrollments(),
         getAllIndos()
       ]);
 
-      setCourse(liveCourse);
-      setInstitute(liveInst);
+      const foundInst = allInstitutes.find((inst) => toSlug(inst.name) === instSlug);
+      if (!foundInst) {
+        setError("Institute records not found.");
+        return;
+      }
+      setInstitute(foundInst);
+      const instId = foundInst.id;
+      setId(instId);
+
+      const foundCourse = allCourses.find(
+        (c) => toSlug(c.name) === courseSlug && c.instituteId === instId
+      );
+      if (!foundCourse) {
+        setError("Course records not found.");
+        return;
+      }
+      setCourse(foundCourse);
+      const cId = foundCourse.id;
+      setCourseId(cId);
       
       // Filter enrollments for this specific course
-      setEnrollments(allEnrollments.filter((e) => e.preSeaCourseId === courseId));
+      setEnrollments(allEnrollments.filter((e) => e.preSeaCourseId === cId));
       setSeafarers(allSeafarers);
     } catch (err: any) {
       console.error("Failed to load course details", err);
@@ -79,14 +101,14 @@ export default function CourseDetailPage() {
   };
 
   useEffect(() => {
-    if (courseId && id) {
+    if (instSlug && courseSlug) {
       loadData();
     }
-  }, [courseId, id]);
+  }, [instSlug, courseSlug]);
 
   // Edit Course Trigger
   const handleEditClick = () => {
-    if (!course) return;
+    if (!course || !id) return;
     setEditCourseForm({
       name: course.name,
       isActive: course.isActive,
@@ -100,6 +122,7 @@ export default function CourseDetailPage() {
 
   const handleUpdateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!courseId || !id) return;
     setFormError(null);
     setFormSuccess(null);
 
@@ -137,6 +160,7 @@ export default function CourseDetailPage() {
   };
 
   const handleDeleteCourse = async () => {
+    if (!courseId) return;
     if (!confirm("Are you sure you want to delete this course?")) return;
     setFormError(null);
     setFormSuccess(null);
@@ -146,7 +170,7 @@ export default function CourseDetailPage() {
       setFormSuccess("Course deleted successfully.");
       setTimeout(() => {
         setFormSuccess(null);
-        router.push(`/courses/${id}`);
+        router.push(`/courses/${instSlug}`);
       }, 1500);
     } catch (err: any) {
       setFormError(err.message || "An error occurred while deleting course.");
@@ -156,6 +180,7 @@ export default function CourseDetailPage() {
 
   // Change Candidate Enrollment Status
   const handleStatusChange = async (enrollment: EnrollmentResponseDTO, newStatus: "ENROLLED" | "COMPLETED" | "CANCELLED") => {
+    if (!courseId) return;
     setUpdatingStatuses((prev) => ({ ...prev, [enrollment.id]: true }));
     try {
       await updateEnrollment(enrollment.id, {
@@ -208,7 +233,7 @@ export default function CourseDetailPage() {
     return (
       <div className="py-24 text-center text-sm text-error">
         {error || "Course records not found."}{" "}
-        <Link href={`/courses/${id}`} className="text-primary hover:underline ml-1">
+        <Link href={`/courses/${instSlug}`} className="text-primary hover:underline ml-1">
           Return to institute details
         </Link>
       </div>
@@ -220,7 +245,7 @@ export default function CourseDetailPage() {
       {/* Header */}
       <PublicLayoutHeader deps={[course.id, course.name, course.isActive]}>
         <div className="flex flex-col gap-2">
-          <Link href={`/courses/${id}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1.5 font-medium mb-1">
+          <Link href={`/courses/${instSlug}`} className="text-xs text-primary hover:underline inline-flex items-center gap-1.5 font-medium mb-1">
             &larr; Back to {institute.name}
           </Link>
           <div className="flex flex-wrap items-center gap-2.5">

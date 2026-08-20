@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { getInstitute, getCourse } from "@/lib/apiClient";
+import { getAllInstitutes, getAllCourses, toSlug } from "@/lib/apiClient";
 
 // Map URL segments to human-readable titles
 const pathTitleMap: Record<string, string> = {
@@ -12,36 +12,37 @@ const pathTitleMap: Record<string, string> = {
   courses: "Courses Hub",
 };
 
-const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-
 export default function Breadcrumbs() {
   const pathname = usePathname() || "";
-  const [resolvedTitles, setResolvedTitles] = useState<Record<string, string>>({});
+  const [slugMap, setSlugMap] = useState<Record<string, string>>({});
   
   // Split the pathname and filter out empty segments
   const segments = pathname.split("/").filter(Boolean);
 
   useEffect(() => {
-    segments.forEach(async (segment) => {
-      if (uuidRegex.test(segment) && !resolvedTitles[segment]) {
-        try {
-          const inst = await getInstitute(segment);
-          if (inst && inst.name) {
-            setResolvedTitles((prev) => ({ ...prev, [segment]: inst.name }));
-          }
-        } catch (err) {
-          try {
-            const course = await getCourse(segment);
-            if (course && course.name) {
-              setResolvedTitles((prev) => ({ ...prev, [segment]: course.name }));
-            }
-          } catch (err2) {
-            console.error("Failed to resolve breadcrumb for segment", segment, err2);
-          }
-        }
+    const loadMappings = async () => {
+      try {
+        const [insts, crses] = await Promise.all([
+          getAllInstitutes(),
+          getAllCourses(),
+        ]);
+        
+        const newMap: Record<string, string> = {};
+        insts.forEach((i) => {
+          newMap[toSlug(i.name)] = i.name;
+        });
+        crses.forEach((c) => {
+          newMap[toSlug(c.name)] = c.name;
+        });
+        
+        setSlugMap(newMap);
+      } catch (err) {
+        console.error("Failed to build breadcrumbs slug map", err);
       }
-    });
-  }, [pathname]);
+    };
+    
+    loadMappings();
+  }, []);
 
   // Initialize breadcrumb chain with the root Portal Gateway '/'
   const items = [
@@ -51,11 +52,18 @@ export default function Breadcrumbs() {
     },
   ];
 
+  if (segments.length > 0 && segments[0] !== "home") {
+    items.push({
+      title: "Home",
+      href: "/home",
+    });
+  }
+
   let accumulatedPath = "";
   segments.forEach((segment) => {
     accumulatedPath += `/${segment}`;
     items.push({
-      title: resolvedTitles[segment] || pathTitleMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1),
+      title: slugMap[segment] || pathTitleMap[segment] || segment.charAt(0).toUpperCase() + segment.slice(1),
       href: accumulatedPath,
     });
   });

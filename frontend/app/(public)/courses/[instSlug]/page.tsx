@@ -4,15 +4,17 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
-  getInstitute,
+  getAllInstitutes,
   getAllCourses,
   getAllEnrollments,
   getAllIndos,
   createCourse,
-  updateCourse,
-  deleteCourse,
   updateEnrollment,
+  updateInstitute,
+  deleteInstitute,
+  toSlug,
   InstituteResponseDTO,
+  InstituteRequestDTO,
   PreSeaCoursesResponseDTO,
   EnrollmentResponseDTO,
   IndosMasterResponseDTO,
@@ -23,13 +25,16 @@ import { PublicLayoutHeader, PublicLayoutSidebar } from "../../PublicLayoutClien
 export default function InstituteDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const id = params.id as string;
+  const instSlug = params.instSlug as string;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Collections
+  // Resolved Institute info
   const [institute, setInstitute] = useState<InstituteResponseDTO | null>(null);
+  const [id, setId] = useState<string | null>(null);
+
+  // Collections
   const [courses, setCourses] = useState<PreSeaCoursesResponseDTO[]>([]);
   const [enrollments, setEnrollments] = useState<EnrollmentResponseDTO[]>([]);
   const [seafarers, setSeafarers] = useState<IndosMasterResponseDTO[]>([]);
@@ -40,43 +45,49 @@ export default function InstituteDetailPage() {
   // Search, modals, forms for Course management
   const [courseSearch, setCourseSearch] = useState("");
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
-  const [isEditCourseModalOpen, setIsEditCourseModalOpen] = useState(false);
-  const [selectedCourse, setSelectedCourse] = useState<PreSeaCoursesResponseDTO | null>(null);
 
   const [courseForm, setCourseForm] = useState<PreSeaCoursesRequestDTO>({
     name: "",
     isActive: true,
     startDate: new Date().toISOString().split("T")[0],
-    instituteId: id
-  });
-  const [editCourseForm, setEditCourseForm] = useState<PreSeaCoursesRequestDTO>({
-    name: "",
-    isActive: true,
-    startDate: new Date().toISOString().split("T")[0],
-    instituteId: id
+    instituteId: ""
   });
 
-  const [pendingStatuses, setPendingStatuses] = useState<Record<string, "ENROLLED" | "COMPLETED" | "CANCELLED">>({});
+  // Institute Edit / Delete States
+  const [isEditInstModalOpen, setIsEditInstModalOpen] = useState(false);
+  const [editInstForm, setEditInstForm] = useState<InstituteRequestDTO>({ name: "" });
 
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Pending Status Updates for candidates
+  const [pendingStatuses, setPendingStatuses] = useState<Record<string, "ENROLLED" | "COMPLETED" | "CANCELLED">>({});
+  const [updatingStatuses, setUpdatingStatuses] = useState<Record<string, boolean>>({});
+
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [liveInst, allCourses, allEnrollments, allSeafarers] = await Promise.all([
-        getInstitute(id),
+      const [allInstitutes, allCourses, allEnrollments, allSeafarers] = await Promise.all([
+        getAllInstitutes(),
         getAllCourses(),
         getAllEnrollments(),
         getAllIndos()
       ]);
 
-      setInstitute(liveInst);
+      const foundInst = allInstitutes.find((inst) => toSlug(inst.name) === instSlug);
+      if (!foundInst) {
+        setError("Institute records not found.");
+        return;
+      }
+
+      setInstitute(foundInst);
+      const instId = foundInst.id;
+      setId(instId);
       
       // Filter courses for this institute
-      const instCourses = allCourses.filter((c) => c.instituteId === id);
+      const instCourses = allCourses.filter((c) => c.instituteId === instId);
       setCourses(instCourses);
 
       // Filter enrollments for this institute's courses
@@ -94,10 +105,10 @@ export default function InstituteDetailPage() {
   };
 
   useEffect(() => {
-    if (id) {
+    if (instSlug) {
       loadData();
     }
-  }, [id]);
+  }, [instSlug]);
 
   // Local courses search filtering
   const filteredCourses = courses.filter((c) =>
@@ -109,6 +120,8 @@ export default function InstituteDetailPage() {
     e.preventDefault();
     setFormError(null);
     setFormSuccess(null);
+
+    if (!id) return;
 
     if (!courseForm.name || courseForm.name.trim().length === 0) {
       setFormError("Course name is required.");
@@ -136,7 +149,7 @@ export default function InstituteDetailPage() {
         name: "",
         isActive: true,
         startDate: new Date().toISOString().split("T")[0],
-        instituteId: id
+        instituteId: ""
       });
 
       setTimeout(() => {
@@ -150,88 +163,64 @@ export default function InstituteDetailPage() {
     }
   };
 
-  // Edit Course Handlers
-  const handleEditClick = (course: PreSeaCoursesResponseDTO) => {
-    setSelectedCourse(course);
-    setEditCourseForm({
-      name: course.name,
-      isActive: course.isActive,
-      startDate: course.startDate,
-      instituteId: id
-    });
+  const handleEditInstClick = () => {
+    if (!institute) return;
+    setEditInstForm({ name: institute.name });
     setFormError(null);
     setFormSuccess(null);
-    setIsEditCourseModalOpen(true);
+    setIsEditInstModalOpen(true);
   };
 
-  const handleUpdateCourse = async (e: React.FormEvent) => {
+  const handleUpdateInstitute = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCourse) return;
+    if (!id) return;
     setFormError(null);
     setFormSuccess(null);
 
-    if (!editCourseForm.name || editCourseForm.name.trim().length === 0) {
-      setFormError("Course name is required.");
-      return;
-    }
-    if (!editCourseForm.startDate) {
-      setFormError("Start date is required.");
+    if (!editInstForm.name || editInstForm.name.trim().length === 0) {
+      setFormError("Institute name is required.");
       return;
     }
 
     setSaving(true);
     try {
-      await updateCourse(selectedCourse.id, {
-        name: editCourseForm.name.trim(),
-        isActive: editCourseForm.isActive,
-        startDate: editCourseForm.startDate,
-        instituteId: id
-      });
-      setFormSuccess("Course updated successfully.");
-
-      const updated = await getAllCourses();
-      setCourses(updated.filter((c) => c.instituteId === id));
-
+      await updateInstitute(id, { name: editInstForm.name.trim() });
+      setFormSuccess("Academy updated successfully.");
+      
+      const newSlug = toSlug(editInstForm.name.trim());
+      
       setTimeout(() => {
         setFormSuccess(null);
-        setIsEditCourseModalOpen(false);
-        setSelectedCourse(null);
+        setIsEditInstModalOpen(false);
+        router.push(`/courses/${newSlug}`);
       }, 1500);
     } catch (err: any) {
-      setFormError(err.message || "An error occurred while updating course.");
+      setFormError(err.message || "An error occurred while updating academy.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteCourse = async () => {
-    if (!selectedCourse) return;
-    if (!confirm("Are you sure you want to delete this course?")) return;
+  const handleDeleteInstClick = async () => {
+    if (!id) return;
+    if (!confirm("Are you sure you want to delete this training academy? This will delete all course listings and associated enrollments.")) return;
     setFormError(null);
     setFormSuccess(null);
     setSaving(true);
     try {
-      await deleteCourse(selectedCourse.id);
-      setFormSuccess("Course deleted successfully.");
-
-      const updated = await getAllCourses();
-      setCourses(updated.filter((c) => c.instituteId === id));
-
+      await deleteInstitute(id);
+      setFormSuccess("Academy deleted successfully.");
       setTimeout(() => {
         setFormSuccess(null);
-        setIsEditCourseModalOpen(false);
-        setSelectedCourse(null);
+        router.push("/courses");
       }, 1500);
     } catch (err: any) {
-      setFormError(err.message || "An error occurred while deleting course.");
-    } finally {
+      setFormError(err.message || "An error occurred while deleting academy.");
       setSaving(false);
     }
   };
 
   // Change Candidate Enrollment Status
-  const [updatingStatuses, setUpdatingStatuses] = useState<Record<string, boolean>>({});
-
   const handleStatusChange = async (enrollment: EnrollmentResponseDTO, newStatus: "ENROLLED" | "COMPLETED" | "CANCELLED") => {
     setUpdatingStatuses((prev) => ({ ...prev, [enrollment.id]: true }));
     try {
@@ -248,7 +237,6 @@ export default function InstituteDetailPage() {
         courses.some((c) => c.id === e.preSeaCourseId)
       ));
 
-      // Clear pending status
       setPendingStatuses((prev) => {
         const next = { ...prev };
         delete next[enrollment.id];
@@ -334,6 +322,24 @@ export default function InstituteDetailPage() {
               View Registered Candidates
             </button>
           </nav>
+
+          <div className="bg-surface-soft border border-hairline rounded-lg p-5 flex flex-col gap-4">
+            <h3 className="text-xs font-semibold tracking-wider text-muted uppercase">Academy Actions</h3>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleEditInstClick}
+                className="w-full h-9 bg-primary text-on-primary font-medium text-xs rounded-md hover:bg-primary-active flex items-center justify-center transition-colors cursor-pointer"
+              >
+                Edit Academy Name
+              </button>
+              <button
+                onClick={handleDeleteInstClick}
+                className="w-full h-9 bg-error/10 text-error font-medium text-xs rounded-md hover:bg-error/20 border border-error/20 flex items-center justify-center transition-colors cursor-pointer"
+              >
+                Delete Academy
+              </button>
+            </div>
+          </div>
         </div>
       </PublicLayoutSidebar>
 
@@ -385,7 +391,7 @@ export default function InstituteDetailPage() {
                     filteredCourses.map((c) => (
                       <tr 
                         key={c.id} 
-                        onClick={() => router.push(`/courses/${id}/${c.id}`)}
+                        onClick={() => router.push(`/courses/${instSlug}/${toSlug(c.name)}`)}
                         className="cursor-pointer transition-colors hover:bg-surface-soft/40"
                       >
                         <td className="px-4 py-3.5 text-sm font-medium text-body-strong">{c.name}</td>
@@ -594,22 +600,20 @@ export default function InstituteDetailPage() {
           </div>
         </div>
       )}
-
-      {/* Edit Course Modal */}
-      {isEditCourseModalOpen && selectedCourse && (
+      {/* Edit Institute Modal */}
+      {isEditInstModalOpen && (
         <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
           <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
             <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
               <div>
-                <h2 className="text-lg font-serif text-ink">Edit Course</h2>
-                <p className="text-[11px] text-muted mt-0.5">Modify or delete the pre-sea course in the directory.</p>
+                <h2 className="text-lg font-serif text-ink">Edit Academy Details</h2>
+                <p className="text-[11px] text-muted mt-0.5">Modify name of this training academy.</p>
               </div>
               <button
                 onClick={() => {
-                  setIsEditCourseModalOpen(false);
+                  setIsEditInstModalOpen(false);
                   setFormError(null);
                   setFormSuccess(null);
-                  setSelectedCourse(null);
                 }}
                 className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
               >
@@ -623,62 +627,38 @@ export default function InstituteDetailPage() {
               {formError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{formError}</div>}
               {formSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{formSuccess}</div>}
 
-              <form onSubmit={handleUpdateCourse} className="flex flex-col gap-4">
+              <form onSubmit={handleUpdateInstitute} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">COURSE NAME</label>
+                  <label className="text-xs font-semibold text-body-strong">ACADEMY NAME</label>
                   <input
                     type="text"
-                    placeholder="Course name (e.g. Pre-Sea Deck Cadet)"
-                    value={editCourseForm.name}
-                    onChange={(e) => setEditCourseForm({ ...editCourseForm, name: e.target.value })}
+                    placeholder="Academy name (e.g. Pacific Maritime Academy)"
+                    value={editInstForm.name}
+                    onChange={(e) => setEditInstForm({ ...editInstForm, name: e.target.value })}
                     className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
                     style={{ height: "40px" }}
                   />
                 </div>
 
-                <div className="flex items-center gap-2 py-1">
-                  <input
-                    type="checkbox"
-                    id="edit-form-isActive"
-                    checked={editCourseForm.isActive}
-                    onChange={(e) => setEditCourseForm({ ...editCourseForm, isActive: e.target.checked })}
-                    className="w-4 h-4 rounded border-muted text-primary focus:ring-primary accent-primary"
-                  />
-                  <label htmlFor="edit-form-isActive" className="text-xs font-semibold text-body-strong cursor-pointer select-none">
-                    ACTIVE COURSE STATUS
-                  </label>
-                </div>
-
-                {/* Modal Actions */}
-                <div className="pt-4 border-t border-hairline flex justify-between gap-3 mt-2">
+                <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
                   <button
                     type="button"
-                    onClick={handleDeleteCourse}
-                    className="h-10 px-4 bg-error/10 text-error font-medium rounded-md hover:bg-error/20 border border-error/20 inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+                    onClick={() => {
+                      setIsEditInstModalOpen(false);
+                      setFormError(null);
+                      setFormSuccess(null);
+                    }}
+                    className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
                   >
-                    Delete Course
+                    Cancel
                   </button>
-                  <div className="flex gap-3">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsEditCourseModalOpen(false);
-                        setFormError(null);
-                        setFormSuccess(null);
-                        setSelectedCourse(null);
-                      }}
-                      className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                    >
-                      {saving ? "Saving..." : "Save Changes"}
-                    </button>
-                  </div>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+                  >
+                    {saving ? "Saving..." : "Save Changes"}
+                  </button>
                 </div>
               </form>
             </div>
