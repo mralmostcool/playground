@@ -39,6 +39,8 @@ services:
       - ./springboot/.env
     expose:
       - "8080"
+    ports:
+      - "8080:8080"
     healthcheck:
       test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health" ]
       interval: 5s
