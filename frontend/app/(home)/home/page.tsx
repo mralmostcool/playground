@@ -19,7 +19,7 @@ export default function HomePage() {
       </section>
 
       {/* Portal Options Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 w-full max-w-3xl flex-shrink-0">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 w-full max-w-5xl flex-shrink-0">
         {/* Card 1: Seafarer Portal */}
         <Link 
           href="/seafarer" 
@@ -105,6 +105,98 @@ export default function HomePage() {
 
           <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-accent-teal mt-auto">
             <span>View Training Directory</span>
+            <svg className="w-3.5 h-3.5 transform transition-transform duration-300 group-hover:translate-x-1.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </div>
+        </Link>
+
+        {/* Card 3: Shipping Companies */}
+        <Link 
+          href="/companies" 
+          className="group relative flex flex-col justify-between p-6 md:p-8 bg-surface-card hover:bg-canvas border border-hairline hover:border-accent-purple rounded-xl transition-all duration-300 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5"
+        >
+          <div>
+            {/* Icon Container */}
+            <div className="w-10 h-10 rounded-lg bg-accent-purple/10 text-accent-purple flex items-center justify-center mb-4 transition-colors duration-300 group-hover:bg-accent-purple group-hover:text-on-primary">
+              <svg className="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+                <line x1="8" y1="21" x2="16" y2="21" />
+                <line x1="12" y1="17" x2="12" y2="21" />
+              </svg>
+            </div>
+
+            <h2 className="text-lg md:text-xl font-serif text-ink mb-2 group-hover:text-accent-purple transition-colors duration-300">
+              Shipping Companies
+            </h2>
+            <p className="text-xs md:text-sm text-body-text mb-4 leading-relaxed">
+              Verify registered shipping carriers, manage commercial vessels, and allocate berths inside active terminal databases.
+            </p>
+
+            <ul className="text-xs text-muted space-y-1.5 mb-6 border-t border-hairline-soft pt-4 hidden sm:block">
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-purple" />
+                <span>Shipping Carrier Registers</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-purple" />
+                <span>Fleet Vessel Management</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-purple" />
+                <span>Terminal Berth Allocation</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-accent-purple mt-auto">
+            <span>Manage Shipping Data</span>
+            <svg className="w-3.5 h-3.5 transform transition-transform duration-300 group-hover:translate-x-1.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+            </svg>
+          </div>
+        </Link>
+
+        {/* Card 4: Fleet Vessels */}
+        <Link 
+          href="/vessels" 
+          className="group relative flex flex-col justify-between p-6 md:p-8 bg-surface-card hover:bg-canvas border border-hairline hover:border-accent-teal rounded-xl transition-all duration-300 text-left shadow-sm hover:shadow-md hover:-translate-y-0.5"
+        >
+          <div>
+            {/* Icon Container */}
+            <div className="w-10 h-10 rounded-lg bg-accent-teal/10 text-accent-teal flex items-center justify-center mb-4 transition-colors duration-300 group-hover:bg-accent-teal group-hover:text-on-primary">
+              <svg className="w-5 h-5 fill-none stroke-current" viewBox="0 0 24 24" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M2 21h20" />
+                <path d="M19.3 14.8C21.1 13.5 22 11.7 22 9.8c0-4.4-4.5-8-10-8S2 5.4 2 9.8c0 1.9.9 3.7 2.7 5" />
+                <path d="M12 1.8v8" />
+              </svg>
+            </div>
+
+            <h2 className="text-lg md:text-xl font-serif text-ink mb-2 group-hover:text-accent-teal transition-colors duration-300">
+              Fleet Vessels
+            </h2>
+            <p className="text-xs md:text-sm text-body-text mb-4 leading-relaxed">
+              Browse marine vessels, audit Flag State registration numbers, and manage active berth layouts.
+            </p>
+
+            <ul className="text-xs text-muted space-y-1.5 mb-6 border-t border-hairline-soft pt-4 hidden sm:block">
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-teal" />
+                <span>Commercial Vessel Register</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-teal" />
+                <span>assigned Shipping Companies</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="w-1 h-1 rounded-full bg-accent-teal" />
+                <span>Allocated Berth Schedules</span>
+              </li>
+            </ul>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-accent-teal mt-auto">
+            <span>Manage Fleet Vessels</span>
             <svg className="w-3.5 h-3.5 transform transition-transform duration-300 group-hover:translate-x-1.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>

@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { getAllInstitutes, getAllCourses, toSlug } from "@/lib/apiClient";
+import { getAllInstitutes, getAllCourses, getAllCompanies, getAllVessels, toSlug } from "@/lib/apiClient";
 
 // Map URL segments to human-readable titles
 const pathTitleMap: Record<string, string> = {
   home: "Home",
   seafarer: "Seafarer Portal",
   courses: "Courses Hub",
+  companies: "Shipping Companies",
 };
 
 export default function Breadcrumbs() {
@@ -22,9 +23,11 @@ export default function Breadcrumbs() {
   useEffect(() => {
     const loadMappings = async () => {
       try {
-        const [insts, crses] = await Promise.all([
+        const [insts, crses, comps, vssls] = await Promise.all([
           getAllInstitutes(),
           getAllCourses(),
+          getAllCompanies(),
+          getAllVessels()
         ]);
         
         const newMap: Record<string, string> = {};
@@ -33,6 +36,12 @@ export default function Breadcrumbs() {
         });
         crses.forEach((c) => {
           newMap[toSlug(c.name)] = c.name;
+        });
+        comps.forEach((co) => {
+          newMap[toSlug(co.name)] = co.name;
+        });
+        vssls.forEach((vs) => {
+          newMap[toSlug(vs.name)] = vs.name;
         });
         
         setSlugMap(newMap);
