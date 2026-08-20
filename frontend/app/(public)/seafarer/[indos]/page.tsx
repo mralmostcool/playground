@@ -11,12 +11,15 @@ import {
   getAllCourses,
   getAllContracts,
   getAllCompanies,
+  getAllInstitutes,
+  createEnrollment,
   IndosMasterResponseDTO, 
   RankMasterResponseDTO,
   EnrollmentResponseDTO,
   PreSeaCoursesResponseDTO,
   ContractResponseDTO,
-  CompanyResponseDTO
+  CompanyResponseDTO,
+  InstituteResponseDTO
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../../PublicLayoutClient";
 
@@ -35,10 +38,21 @@ export default function SeafarerDetailPage() {
   const [courses, setCourses] = useState<PreSeaCoursesResponseDTO[]>([]);
   const [contracts, setContracts] = useState<ContractResponseDTO[]>([]);
   const [companies, setCompanies] = useState<CompanyResponseDTO[]>([]);
+  const [institutes, setInstitutes] = useState<InstituteResponseDTO[]>([]);
 
   // Navigation state inside the Right column
-  const [activeDetailTab, setActiveDetailTab] = useState<"overview" | "stcw" | "seaService" | "docs">("overview");
+  const [activeDetailTab, setActiveDetailTab] = useState<"overview" | "courses" | "addCourses" | "training">("overview");
   const [reportGenerating, setReportGenerating] = useState(false);
+
+  // Add Courses Search & Filter States
+  const [instituteSearch, setInstituteSearch] = useState("");
+  const [selectedInstIds, setSelectedInstIds] = useState<string[]>([]);
+  const [courseSearch, setCourseSearch] = useState("");
+  const [enrollingCourse, setEnrollingCourse] = useState<PreSeaCoursesResponseDTO | null>(null);
+
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollSuccess, setEnrollSuccess] = useState<string | null>(null);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
 
   const loadSeafarerData = async () => {
     setLoading(true);
@@ -53,11 +67,12 @@ export default function SeafarerDetailPage() {
       setRanks(liveRanks);
 
       // 2. Fetch associated database collections
-      const [allEnrollments, allCourses, allContracts, allCompanies] = await Promise.all([
+      const [allEnrollments, allCourses, allContracts, allCompanies, allInstitutes] = await Promise.all([
         getAllEnrollments(),
         getAllCourses(),
         getAllContracts(),
-        getAllCompanies()
+        getAllCompanies(),
+        getAllInstitutes()
       ]);
 
       // Filter enrollments and contracts for this seafarer
@@ -66,6 +81,7 @@ export default function SeafarerDetailPage() {
       setCourses(allCourses);
       setContracts(allContracts.filter(c => c.indosMasterId === seafarerId));
       setCompanies(allCompanies);
+      setInstitutes(allInstitutes);
     } catch (err: any) {
       console.error("Failed to load seafarer registry data", err);
       setError("Failed to query seafarer records from backend registries.");
@@ -99,6 +115,40 @@ export default function SeafarerDetailPage() {
       router.push("/seafarer");
     } catch (err: any) {
       alert(err.message || "Failed to delete seafarer.");
+    }
+  };
+
+  const handleEnrollClick = (course: PreSeaCoursesResponseDTO) => {
+    setEnrollingCourse(course);
+    setEnrollError(null);
+    setEnrollSuccess(null);
+  };
+
+  const handleConfirmEnroll = async () => {
+    if (!enrollingCourse || !seafarer) return;
+    setEnrolling(true);
+    setEnrollError(null);
+    setEnrollSuccess(null);
+    try {
+      await createEnrollment({
+        preSeaCourseId: enrollingCourse.id,
+        indosMasterId: seafarer.id,
+        status: "ENROLLED",
+        remarks: ""
+      });
+      setEnrollSuccess("Enrolled successfully!");
+      
+      const allEnrollments = await getAllEnrollments();
+      setEnrollments(allEnrollments.filter(e => e.indosMasterId === seafarer.id));
+
+      setTimeout(() => {
+        setEnrollSuccess(null);
+        setEnrollingCourse(null);
+      }, 1500);
+    } catch (err: any) {
+      setEnrollError(err.message || "Failed to enroll in the course.");
+    } finally {
+      setEnrolling(false);
     }
   };
 
@@ -156,34 +206,34 @@ export default function SeafarerDetailPage() {
               Overview
             </button>
             <button
-              onClick={() => setActiveDetailTab("stcw")}
+              onClick={() => setActiveDetailTab("courses")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
-                activeDetailTab === "stcw"
+                activeDetailTab === "courses"
                   ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
                   : "text-muted hover:text-ink hover:bg-surface-soft/40"
               }`}
             >
-              Pre-Sea Courses
+              Registered Courses
             </button>
             <button
-              onClick={() => setActiveDetailTab("seaService")}
+              onClick={() => setActiveDetailTab("addCourses")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
-                activeDetailTab === "seaService"
+                activeDetailTab === "addCourses"
                   ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
                   : "text-muted hover:text-ink hover:bg-surface-soft/40"
               }`}
             >
-              Voyage Contracts
+              Add Courses
             </button>
             <button
-              onClick={() => setActiveDetailTab("docs")}
+              onClick={() => setActiveDetailTab("training")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
-                activeDetailTab === "docs"
+                activeDetailTab === "training"
                   ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
                   : "text-muted hover:text-ink hover:bg-surface-soft/40"
               }`}
             >
-              Documents
+              Training
             </button>
           </nav>
 
@@ -202,65 +252,19 @@ export default function SeafarerDetailPage() {
         {/* Overview Tab Content */}
         {activeDetailTab === "overview" && (
           <div className="flex flex-col gap-6">
-            <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6">
-              <div className="border-b border-hairline pb-4">
-                <h3 className="text-xl font-serif text-ink">Registry Profile Details</h3>
-                <p className="text-xs text-muted mt-0.5">Primary registration record and active duty logs.</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
-                <div className="p-4 bg-canvas border border-hairline-soft rounded-md flex flex-col gap-1">
-                  <span className="text-muted block uppercase tracking-wider text-[10px]">Registered Rank</span>
-                  <span className="text-base font-semibold text-body-strong">{rankName}</span>
-                </div>
-                <div className="p-4 bg-canvas border border-hairline-soft rounded-md flex flex-col gap-1">
-                  <span className="text-muted block uppercase tracking-wider text-[10px]">Compliance Class</span>
-                  <span className="text-base font-semibold text-body-strong">Level {getRankLevel(seafarer.rankId) ?? "N/A"}</span>
-                </div>
-                <div className="p-4 bg-canvas border border-hairline-soft rounded-md flex flex-col gap-1">
-                  <span className="text-muted block uppercase tracking-wider text-[10px]">Registry Date</span>
-                  <span className="text-sm font-mono text-body-strong">
-                    {seafarer.createdAt ? new Date(seafarer.createdAt).toLocaleDateString() : "N/A"}
-                  </span>
-                </div>
-                <div className="p-4 bg-canvas border border-hairline-soft rounded-md flex flex-col gap-1">
-                  <span className="text-muted block uppercase tracking-wider text-[10px]">Last Sync Timestamp</span>
-                  <span className="text-sm font-mono text-body-strong">
-                    {seafarer.updatedAt ? new Date(seafarer.updatedAt).toLocaleDateString() : "N/A"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pt-4 border-t border-hairline flex gap-3 justify-end">
-                <button
-                  onClick={() => {
-                    setReportGenerating(true);
-                    setTimeout(() => {
-                      setReportGenerating(false);
-                      alert(`Encrypted Verification Report downloaded for ${seafarer.firstName} (${seafarer.indos})`);
-                    }, 1000);
-                  }}
-                  disabled={reportGenerating}
-                  className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  {reportGenerating ? "Encrypting..." : "Verify Report"}
-                </button>
-                <button
-                  onClick={handleDeleteSeafarer}
-                  className="h-10 px-5 bg-error text-on-primary font-medium rounded-md hover:opacity-90 inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                >
-                  Delete Record
-                </button>
+            <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6 min-h-[300px]">
+              <div className="text-center py-20 text-xs text-muted">
+                Overview KPIs & profile summary section. Space reserved.
               </div>
             </div>
           </div>
         )}
 
-        {/* Pre-Sea Courses Tab Content */}
-        {activeDetailTab === "stcw" && (
+        {/* Courses Tab Content */}
+        {activeDetailTab === "courses" && (
           <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6">
             <div className="border-b border-hairline pb-4">
-              <h3 className="text-xl font-serif text-ink">Pre-Sea Course Compliance</h3>
+              <h3 className="text-xl font-serif text-ink">Registered Courses</h3>
               <p className="text-xs text-muted mt-0.5">Audited certification compliance under standard pre-sea training registers.</p>
             </div>
 
@@ -269,7 +273,7 @@ export default function SeafarerDetailPage() {
                 <svg className="w-8 h-8 opacity-25 text-body-strong stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="1.5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
                 </svg>
-                <span className="text-xs">No pre-sea courses or registry enrollments found in compliance history.</span>
+                <span className="text-xs">No courses registered for this candidate.</span>
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -306,84 +310,235 @@ export default function SeafarerDetailPage() {
           </div>
         )}
 
-        {/* Voyage Contracts Tab Content */}
-        {activeDetailTab === "seaService" && (
-          <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6">
-            <div className="border-b border-hairline pb-4">
-              <h3 className="text-xl font-serif text-ink">Sea Service Contracts</h3>
-              <p className="text-xs text-muted mt-0.5">Verified sea time contracts and active embarkation records.</p>
-            </div>
-
-            {contracts.length === 0 ? (
-              <div className="border border-dashed border-hairline rounded-lg p-10 text-center text-muted flex flex-col items-center justify-center gap-3 bg-surface-soft/20 min-h-[200px]">
-                <svg className="w-8 h-8 opacity-25 text-body-strong stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 21v-4.875c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125V21m0 0h4.5V3.545M12.75 21h7.5V10.75M2.25 21h1.5m18 0h-18M2.25 9l4.5-1.636M18.75 3l-1.5.545m0 6.205 3 1M5.25 10.75a2.25 2.25 0 1 1-4.5 0c0-1.242 1.336-2.25 3-2.25h1.5v2.25Z" />
-                </svg>
-                <span className="text-xs">No active sea service voyages or contract history registered.</span>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden">
-                  <thead>
-                    <tr className="bg-surface-soft border-b border-hairline text-[11px] text-muted">
-                      <th className="px-4 py-3 text-left font-semibold uppercase">Company</th>
-                      <th className="px-4 py-3 text-left font-semibold uppercase">Sign On</th>
-                      <th className="px-4 py-3 text-left font-semibold uppercase">Sign Off</th>
-                      <th className="px-4 py-3 text-left font-semibold uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-hairline-soft text-xs">
-                    {contracts.map((c) => {
-                      const companyName = companies.find(comp => comp.id === c.companyId)?.name ?? "Unknown Company";
-                      return (
-                        <tr key={c.id} className="hover:bg-surface-soft/20 transition-colors">
-                          <td className="px-4 py-3.5">
-                            <span className="font-semibold text-body-strong block">{companyName}</span>
-                            <span className="text-[10px] text-muted font-mono">Sign-On: {c.signOnPort}, {c.signOnCountry}</span>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <span className="text-body-strong block font-mono">{c.signOnDate}</span>
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <span className="text-body-strong block font-mono">{c.signOffDate || "—"}</span>
-                            {c.signOffPort && <span className="text-[10px] text-muted-soft block">{c.signOffPort}, {c.signOffCountry}</span>}
-                          </td>
-                          <td className="px-4 py-3.5">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                              c.status === "ACTIVE" ? "bg-success/15 text-success" :
-                              c.status === "COMPLETED" ? "bg-primary/15 text-primary" : "bg-muted/15 text-muted"
-                            }`}>
-                              {c.status}
-                            </span>
+        {/* Add Courses Tab Content */}
+        {activeDetailTab === "addCourses" && (
+          <div className="flex flex-col gap-6 p-2 bg-canvas">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Left Column: Institutes Filter checklist */}
+              <div className="col-span-1 flex flex-col gap-4">
+                <input
+                  type="text"
+                  placeholder="Search institutes..."
+                  value={instituteSearch}
+                  onChange={(e) => setInstituteSearch(e.target.value)}
+                  className="w-full text-input px-3 bg-canvas text-ink border border-muted focus:border-primary rounded-md outline-none text-xs"
+                  style={{ height: "34px" }}
+                />
+                <div className="overflow-x-auto h-[calc(100vh-270px)] overflow-y-auto pb-6">
+                  <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="bg-surface-soft border-b border-hairline text-[11px] text-muted">
+                        <th className="px-4 py-3 text-left font-semibold uppercase w-10">Select</th>
+                        <th className="px-4 py-3 text-left font-semibold uppercase">Institute Name</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-hairline-soft text-xs">
+                      {institutes
+                        .filter((inst) => inst.name.toLowerCase().includes(instituteSearch.toLowerCase()))
+                        .map((inst) => {
+                          const isChecked = selectedInstIds.includes(inst.id);
+                          return (
+                            <tr
+                              key={inst.id}
+                              onClick={() => {
+                                if (isChecked) {
+                                  setSelectedInstIds((prev) => prev.filter((id) => id !== inst.id));
+                                } else {
+                                  setSelectedInstIds((prev) => [...prev, inst.id]);
+                                }
+                              }}
+                              className="hover:bg-surface-soft/20 transition-colors cursor-pointer"
+                            >
+                              <td className="px-4 py-3.5" onClick={(e) => e.stopPropagation()}>
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      setSelectedInstIds((prev) => [...prev, inst.id]);
+                                    } else {
+                                      setSelectedInstIds((prev) => prev.filter((id) => id !== inst.id));
+                                    }
+                                  }}
+                                  className="w-3.5 h-3.5 rounded border-muted text-primary focus:ring-primary accent-primary"
+                                />
+                              </td>
+                              <td className="px-4 py-3.5 text-body-strong font-medium">
+                                {inst.name}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      {institutes.filter((inst) => inst.name.toLowerCase().includes(instituteSearch.toLowerCase())).length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-4 py-8 text-center text-sm text-muted">
+                            No matching institutes.
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
+
+              {/* Right Column: Courses List table */}
+              <div className="col-span-1 flex flex-col gap-4">
+                <input
+                  type="text"
+                  placeholder="Search course listings by name..."
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  className="w-full text-input px-4 bg-canvas text-ink border border-muted focus:border-primary rounded-md outline-none text-sm"
+                  style={{ height: "40px" }}
+                />
+
+                <div className="overflow-x-auto h-[calc(100vh-270px)] overflow-y-auto pb-6">
+                  <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden">
+                    <thead>
+                      <tr className="bg-surface-soft border-b border-hairline text-[11px] text-muted">
+                        <th className="px-4 py-3 text-left font-semibold uppercase">Course Name</th>
+                        <th className="px-4 py-3 text-left font-semibold uppercase">Start Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-hairline-soft text-xs">
+                      {courses
+                        .filter((c) => {
+                          const matchesSearch = c.name.toLowerCase().includes(courseSearch.toLowerCase());
+                          const matchesInst = selectedInstIds.length === 0 || selectedInstIds.includes(c.instituteId || "");
+                          return matchesSearch && matchesInst;
+                        })
+                        .map((c) => {
+                          const instName = institutes.find((i) => i.id === c.instituteId)?.name ?? "Unknown Partner";
+                          const isEnrolled = enrollments.some((e) => e.preSeaCourseId === c.id);
+                          
+                          return (
+                            <tr
+                              key={c.id}
+                              onClick={() => handleEnrollClick(c)}
+                              className="hover:bg-surface-soft/20 transition-colors cursor-pointer"
+                            >
+                              <td className="px-4 py-3.5 text-body-strong">
+                                <div className="flex flex-col gap-0.5">
+                                  <div className="font-semibold flex items-center gap-2">
+                                    {c.name}
+                                    {isEnrolled && (
+                                      <span className="inline-flex px-1.5 py-0.5 bg-success/15 text-success rounded text-[9px] font-bold uppercase tracking-wider">
+                                        Enrolled
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-muted font-normal">
+                                    {instName}
+                                  </div>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3.5 font-mono text-muted">{c.startDate}</td>
+                            </tr>
+                          );
+                        })}
+                      {courses.filter((c) => {
+                        const matchesSearch = c.name.toLowerCase().includes(courseSearch.toLowerCase());
+                        const matchesInst = selectedInstIds.length === 0 || selectedInstIds.includes(c.instituteId || "");
+                        return matchesSearch && matchesInst;
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan={2} className="px-4 py-8 text-center text-sm text-muted">
+                            No courses matching the search criteria.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Documents Tab Content */}
-        {activeDetailTab === "docs" && (
-          <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6">
+        {/* Training Tab Content */}
+        {activeDetailTab === "training" && (
+          <div className="bg-surface-card border border-hairline rounded-lg p-6 flex flex-col gap-6 min-h-[300px]">
             <div className="border-b border-hairline pb-4">
-              <h3 className="text-xl font-serif text-ink">Identification Documents</h3>
-              <p className="text-xs text-muted mt-0.5">Seafarer travel documents, CDC and medical files.</p>
+              <h3 className="text-xl font-serif text-ink">Training History</h3>
+              <p className="text-xs text-muted mt-0.5">Specialized certifications and validation entries.</p>
             </div>
-
             <div className="border border-dashed border-hairline rounded-lg p-10 text-center text-muted flex flex-col items-center justify-center gap-3 bg-surface-soft/20 min-h-[200px]">
-              <svg className="w-8 h-8 opacity-25 text-body-strong stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="1.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
-              </svg>
-              <span className="text-xs">No verified travel or registry documents uploaded.</span>
+              <span className="text-xs">Training history section. Space reserved.</span>
             </div>
           </div>
         )}
 
       </div>
+
+      {/* Course Detail Modal / Enroll now */}
+      {enrollingCourse && (
+        <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
+          <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
+            <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
+              <div>
+                <h2 className="text-lg font-serif text-ink">Course Details</h2>
+                <p className="text-[11px] text-muted mt-0.5">Verify program information and enroll.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setEnrollingCourse(null);
+                  setEnrollError(null);
+                  setEnrollSuccess(null);
+                }}
+                className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4 text-xs">
+              {enrollError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{enrollError}</div>}
+              {enrollSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{enrollSuccess}</div>}
+
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted uppercase font-semibold text-[10px]">Course Name</span>
+                  <span className="text-sm font-semibold text-body-strong">{enrollingCourse.name}</span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted uppercase font-semibold text-[10px]">Institute Partner</span>
+                  <span className="text-sm font-medium text-body-strong">
+                    {institutes.find((i) => i.id === enrollingCourse.instituteId)?.name ?? "Unknown"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-muted uppercase font-semibold text-[10px]">Start Date</span>
+                  <span className="text-sm font-mono text-body-strong">{enrollingCourse.startDate}</span>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEnrollingCourse(null);
+                    setEnrollError(null);
+                    setEnrollSuccess(null);
+                  }}
+                  className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmEnroll}
+                  disabled={enrolling || enrollments.some(e => e.preSeaCourseId === enrollingCourse.id)}
+                  className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {enrolling ? "Enrolling..." : enrollments.some(e => e.preSeaCourseId === enrollingCourse.id) ? "Already Enrolled" : "Enroll Now"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
