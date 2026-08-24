@@ -9,39 +9,16 @@ import {
   toSlug,
   VesselRequestDTO,
   VesselResponseDTO,
-  CompanyResponseDTO
+  CompanyResponseDTO,
+  getVesselCompanyId,
+  registerVesselToCompany
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../PublicLayoutClient";
 
 // Helper to filter vessels by company prefix or local storage mapping
 const getVesselCompany = (vessel: VesselResponseDTO, companies: CompanyResponseDTO[]) => {
-  // Load custom mapping from localStorage
-  if (typeof window !== "undefined") {
-    const customMapRaw = localStorage.getItem("vessel_company_map");
-    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
-    const customCompId = customMap[vessel.id];
-    if (customCompId) {
-      const found = companies.find(c => c.id === customCompId);
-      if (found) return found;
-    }
-  }
-
-  // Fallback to name prefix matches for seeded database elements
-  const match = companies.find(c => {
-    const prefix = c.name.split(" ")[0].toLowerCase();
-    return vessel.name.toLowerCase().startsWith(prefix);
-  });
-  return match || null;
-};
-
-// Helper to register new vessel mapping in local storage
-const registerVesselToCompany = (vesselId: string, companyId: string) => {
-  if (typeof window !== "undefined") {
-    const customMapRaw = localStorage.getItem("vessel_company_map");
-    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
-    customMap[vesselId] = companyId;
-    localStorage.setItem("vessel_company_map", JSON.stringify(customMap));
-  }
+  const compId = getVesselCompanyId(vessel.id, vessel.name, companies);
+  return companies.find(c => c.id === compId) || null;
 };
 
 export default function VesselsPage() {

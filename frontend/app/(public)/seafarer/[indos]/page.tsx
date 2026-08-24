@@ -7,9 +7,9 @@ import {
   getIndosByIndos, 
   getAllRanks, 
   deleteIndos, 
-  getAllEnrollments,
+  getEnrollmentsByIndosId,
   getAllCourses,
-  getAllContracts,
+  getContractsByIndosId,
   getAllCompanies,
   getAllInstitutes,
   createEnrollment,
@@ -67,19 +67,17 @@ export default function SeafarerDetailPage() {
       setRanks(liveRanks);
 
       // 2. Fetch associated database collections
-      const [allEnrollments, allCourses, allContracts, allCompanies, allInstitutes] = await Promise.all([
-        getAllEnrollments(),
+      const [seafarerEnrollments, allCourses, seafarerContracts, allCompanies, allInstitutes] = await Promise.all([
+        getEnrollmentsByIndosId(liveSeafarer.id),
         getAllCourses(),
-        getAllContracts(),
+        getContractsByIndosId(liveSeafarer.id),
         getAllCompanies(),
         getAllInstitutes()
       ]);
 
-      // Filter enrollments and contracts for this seafarer
-      const seafarerId = liveSeafarer.id;
-      setEnrollments(allEnrollments.filter(e => e.indosMasterId === seafarerId));
+      setEnrollments(seafarerEnrollments);
       setCourses(allCourses);
-      setContracts(allContracts.filter(c => c.indosMasterId === seafarerId));
+      setContracts(seafarerContracts);
       setCompanies(allCompanies);
       setInstitutes(allInstitutes);
     } catch (err: any) {
@@ -138,8 +136,8 @@ export default function SeafarerDetailPage() {
       });
       setEnrollSuccess("Enrolled successfully!");
       
-      const allEnrollments = await getAllEnrollments();
-      setEnrollments(allEnrollments.filter(e => e.indosMasterId === seafarer.id));
+      const seafarerEnrollments = await getEnrollmentsByIndosId(seafarer.id);
+      setEnrollments(seafarerEnrollments);
 
       setTimeout(() => {
         setEnrollSuccess(null);

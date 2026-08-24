@@ -13,36 +13,14 @@ import {
   CompanyResponseDTO,
   VesselResponseDTO,
   VesselRequestDTO,
-  CompanyRequestDTO
+  CompanyRequestDTO,
+  getVesselCompanyId
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../../PublicLayoutClient";
 
 // Helper to filter vessels by company prefix or local storage mapping
-const getCompanyVessels = (companyId: string, allVessels: VesselResponseDTO[], companyName: string) => {
-  const prefix = companyName.split(" ")[0].toLowerCase();
-  const seeded = allVessels.filter((v) => v.name.toLowerCase().startsWith(prefix));
-
-  if (typeof window !== "undefined") {
-    const customMapRaw = localStorage.getItem("vessel_company_map");
-    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
-    const custom = allVessels.filter((v) => customMap[v.id] === companyId);
-
-    const map = new Map<string, VesselResponseDTO>();
-    seeded.forEach((v) => map.set(v.id, v));
-    custom.forEach((v) => map.set(v.id, v));
-    return Array.from(map.values());
-  }
-  return seeded;
-};
-
-// Helper to register new vessel mapping in local storage
-const registerVesselToCompany = (vesselId: string, companyId: string) => {
-  if (typeof window !== "undefined") {
-    const customMapRaw = localStorage.getItem("vessel_company_map");
-    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
-    customMap[vesselId] = companyId;
-    localStorage.setItem("vessel_company_map", JSON.stringify(customMap));
-  }
+const getCompanyVessels = (companyId: string, allVessels: VesselResponseDTO[], companies: CompanyResponseDTO[]) => {
+  return allVessels.filter((v) => getVesselCompanyId(v.id, v.name, companies) === companyId);
 };
 
 export default function CompanyDetailPage() {
@@ -89,7 +67,7 @@ export default function CompanyDetailPage() {
       setCompany(foundComp);
       setEditCompForm({ name: foundComp.name, isActive: foundComp.isActive });
 
-      const compVessels = getCompanyVessels(foundComp.id, allVessels, foundComp.name);
+      const compVessels = getCompanyVessels(foundComp.id, allVessels, allComps);
       setVessels(compVessels);
     } catch (err: any) {
       console.error("Failed to query company details", err);

@@ -32,11 +32,35 @@ export type VesselRequestDTO = {
   name: string;
   flag: string;
   isActive: boolean;
+  companyId?: string;
 };
 export type VesselResponseDTO = VesselRequestDTO & {
   id: string;
   createdAt: string;
   updatedAt: string;
+};
+
+// Client-side helper to associate vessels with companies
+export const getVesselCompanyId = (vesselId: string, name: string, companies: { id: string; name: string }[]): string => {
+  if (typeof window !== "undefined") {
+    const customMapRaw = localStorage.getItem("vessel_company_map");
+    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
+    if (customMap[vesselId]) return customMap[vesselId];
+  }
+  const match = companies.find(c => {
+    const prefix = c.name.split(" ")[0].toLowerCase();
+    return name.toLowerCase().startsWith(prefix);
+  });
+  return match?.id || "";
+};
+
+export const registerVesselToCompany = (vesselId: string, companyId: string) => {
+  if (typeof window !== "undefined") {
+    const customMapRaw = localStorage.getItem("vessel_company_map");
+    const customMap = customMapRaw ? JSON.parse(customMapRaw) : {};
+    customMap[vesselId] = companyId;
+    localStorage.setItem("vessel_company_map", JSON.stringify(customMap));
+  }
 };
 
 export const getAllVessels = () => getJson<VesselResponseDTO[]>("/vessels");
@@ -153,6 +177,10 @@ export const getEnrollment = (id: string) => getJson<EnrollmentResponseDTO>(`/en
 export const createEnrollment = (d: EnrollmentRequestDTO) => sendJson<EnrollmentResponseDTO>("POST", "/enrollments", d);
 export const updateEnrollment = (id: string, d: EnrollmentRequestDTO) => sendJson<EnrollmentResponseDTO>("PUT", `/enrollments/${id}`, d);
 export const deleteEnrollment = (id: string) => sendJson<void>("DELETE", `/enrollments/${id}`);
+export const getEnrollmentsByIndosId = async (indosId: string) => {
+  const all = await getAllEnrollments();
+  return all.filter(e => e.indosMasterId === indosId);
+};
 
 // ── Contracts ────────────────────────────────────────────────────────
 
@@ -187,6 +215,10 @@ export const getContract = (id: string) => getJson<ContractResponseDTO>(`/contra
 export const createContract = (d: ContractRequestDTO) => sendJson<ContractResponseDTO>("POST", "/contracts", d);
 export const updateContract = (id: string, d: ContractRequestDTO) => sendJson<ContractResponseDTO>("PUT", `/contracts/${id}`, d);
 export const deleteContract = (id: string) => sendJson<void>("DELETE", `/contracts/${id}`);
+export const getContractsByIndosId = async (indosId: string) => {
+  const all = await getAllContracts();
+  return all.filter(c => c.indosMasterId === indosId);
+};
 
 // ── Companies ────────────────────────────────────────────────────────
 

@@ -16,7 +16,8 @@ import {
   PreSeaCoursesResponseDTO,
   EnrollmentResponseDTO,
   IndosMasterResponseDTO,
-  PreSeaCoursesRequestDTO
+  PreSeaCoursesRequestDTO,
+  getCourse
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../../../PublicLayoutClient";
 
