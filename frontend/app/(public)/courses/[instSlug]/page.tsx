@@ -21,10 +21,25 @@ import {
   PreSeaCoursesRequestDTO
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../../PublicLayoutClient";
+import {
+  PageHeader,
+  SearchBar,
+  LoadingSkeleton,
+  EmptyState,
+  Modal,
+  ConfirmDialog,
+  StatusBadge,
+  TabBar,
+  InfoRow,
+  useToast
+} from "@/components/ui";
+
+type TabId = "courses" | "candidates";
 
 export default function InstituteDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const instSlug = params.instSlug as string;
 
   const [loading, setLoading] = useState(true);
@@ -39,11 +54,12 @@ export default function InstituteDetailPage() {
   const [enrollments, setEnrollments] = useState<EnrollmentResponseDTO[]>([]);
   const [seafarers, setSeafarers] = useState<IndosMasterResponseDTO[]>([]);
 
-  // Navigation / Tab state in Sidebar
-  const [activeTab, setActiveTab] = useState<"courses" | "candidates">("courses");
+  // Navigation / Tab state
+  const [activeTab, setActiveTab] = useState<TabId>("courses");
 
   // Search, modals, forms for Course management
   const [courseSearch, setCourseSearch] = useState("");
+  const [candidateSearch, setCandidateSearch] = useState("");
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
 
   const [courseForm, setCourseForm] = useState<PreSeaCoursesRequestDTO>({
@@ -56,14 +72,9 @@ export default function InstituteDetailPage() {
   // Institute Edit / Delete States
   const [isEditInstModalOpen, setIsEditInstModalOpen] = useState(false);
   const [editInstForm, setEditInstForm] = useState<InstituteRequestDTO>({ name: "" });
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  // Pending Status Updates for candidates
-  const [pendingStatuses, setPendingStatuses] = useState<Record<string, "ENROLLED" | "COMPLETED" | "CANCELLED">>({});
-  const [updatingStatuses, setUpdatingStatuses] = useState<Record<string, boolean>>({});
 
   const loadData = async () => {
     setLoading(true);
@@ -85,7 +96,8 @@ export default function InstituteDetailPage() {
       setInstitute(foundInst);
       const instId = foundInst.id;
       setId(instId);
-      
+      setEditInstForm({ name: foundInst.name });
+
       // Filter courses for this institute
       const instCourses = allCourses.filter((c) => c.instituteId === instId);
       setCourses(instCourses);
@@ -98,7 +110,8 @@ export default function InstituteDetailPage() {
       setSeafarers(allSeafarers);
     } catch (err: any) {
       console.error("Failed to load institute details", err);
-      setError("Failed to query records for this institute from backend database.");
+      setError("Failed to query institute records from backend registries.");
+      toast("Error loading institute details", "error");
     } finally {
       setLoading(false);
     }
@@ -110,561 +123,430 @@ export default function InstituteDetailPage() {
     }
   }, [instSlug]);
 
-  // Local courses search filtering
-  const filteredCourses = courses.filter((c) =>
-    c.name.toLowerCase().includes(courseSearch.toLowerCase())
-  );
-
-  // Add Course Handler
-  const handleAddCourse = async (e: React.FormEvent) => {
+  const handleEditInstitute = async (e: React.FormEvent) => {
     e.preventDefault();
-    setFormError(null);
-    setFormSuccess(null);
+    if (!id || !institute) return;
 
-    if (!id) return;
-
-    if (!courseForm.name || courseForm.name.trim().length === 0) {
-      setFormError("Course name is required.");
-      return;
-    }
-    if (!courseForm.startDate) {
-      setFormError("Start date is required.");
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await createCourse({
-        name: courseForm.name.trim(),
-        isActive: courseForm.isActive,
-        startDate: courseForm.startDate,
-        instituteId: id
-      });
-      setFormSuccess("Course registered successfully.");
-
-      const updated = await getAllCourses();
-      setCourses(updated.filter((c) => c.instituteId === id));
-
-      setCourseForm({
-        name: "",
-        isActive: true,
-        startDate: new Date().toISOString().split("T")[0],
-        instituteId: ""
-      });
-
-      setTimeout(() => {
-        setFormSuccess(null);
-        setIsCourseModalOpen(false);
-      }, 1500);
-    } catch (err: any) {
-      setFormError(err.message || "An error occurred while creating course.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleEditInstClick = () => {
-    if (!institute) return;
-    setEditInstForm({ name: institute.name });
-    setFormError(null);
-    setFormSuccess(null);
-    setIsEditInstModalOpen(true);
-  };
-
-  const handleUpdateInstitute = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!id) return;
-    setFormError(null);
-    setFormSuccess(null);
-
-    if (!editInstForm.name || editInstForm.name.trim().length === 0) {
-      setFormError("Institute name is required.");
+    if (!editInstForm.name.trim()) {
+      toast("Institute name is required.", "warning");
       return;
     }
 
     setSaving(true);
     try {
       await updateInstitute(id, { name: editInstForm.name.trim() });
-      setFormSuccess("Academy updated successfully.");
-      
+      toast("Institute information updated successfully.", "success");
       const newSlug = toSlug(editInstForm.name.trim());
-      
-      setTimeout(() => {
-        setFormSuccess(null);
-        setIsEditInstModalOpen(false);
-        router.push(`/courses/${newSlug}`);
-      }, 1500);
+      setIsEditInstModalOpen(false);
+      router.push(`/courses/${newSlug}`);
     } catch (err: any) {
-      setFormError(err.message || "An error occurred while updating academy.");
+      toast(err.message || "Failed to update institute details.", "error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteInstClick = async () => {
+  const handleDeleteInstitute = async () => {
     if (!id) return;
-    if (!confirm("Are you sure you want to delete this training academy? This will delete all course listings and associated enrollments.")) return;
-    setFormError(null);
-    setFormSuccess(null);
-    setSaving(true);
     try {
       await deleteInstitute(id);
-      setFormSuccess("Academy deleted successfully.");
-      setTimeout(() => {
-        setFormSuccess(null);
-        router.push("/courses");
-      }, 1500);
+      toast("Institute deleted successfully.", "success");
+      router.push("/courses");
     } catch (err: any) {
-      setFormError(err.message || "An error occurred while deleting academy.");
+      toast(err.message || "Failed to delete institute.", "error");
+    }
+  };
+
+  const handleCreateCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!id) return;
+
+    if (!courseForm.name.trim()) {
+      toast("Course name is required.", "warning");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const newCourse = await createCourse({
+        name: courseForm.name.trim(),
+        isActive: courseForm.isActive,
+        startDate: courseForm.startDate,
+        instituteId: id
+      });
+      toast("Course registered successfully under this college.", "success");
+      setCourses((prev) => [...prev, newCourse]);
+      setCourseForm({
+        name: "",
+        isActive: true,
+        startDate: new Date().toISOString().split("T")[0],
+        instituteId: ""
+      });
+      setIsCourseModalOpen(false);
+    } catch (err: any) {
+      toast(err.message || "Failed to create course.", "error");
+    } finally {
       setSaving(false);
     }
   };
 
-  // Change Candidate Enrollment Status
-  const handleStatusChange = async (enrollment: EnrollmentResponseDTO, newStatus: "ENROLLED" | "COMPLETED" | "CANCELLED") => {
-    setUpdatingStatuses((prev) => ({ ...prev, [enrollment.id]: true }));
+  const handleStatusChange = async (enrollmentId: string, newStatus: "COMPLETED" | "CANCELLED") => {
     try {
-      await updateEnrollment(enrollment.id, {
-        preSeaCourseId: enrollment.preSeaCourseId,
-        indosMasterId: enrollment.indosMasterId,
-        status: newStatus,
-        remarks: enrollment.remarks
-      });
-      
-      // Reload enrollments
-      const allEnrollments = await getAllEnrollments();
-      setEnrollments(allEnrollments.filter((e) =>
-        courses.some((c) => c.id === e.preSeaCourseId)
-      ));
+      const found = enrollments.find(e => e.id === enrollmentId);
+      if (!found) return;
 
-      setPendingStatuses((prev) => {
-        const next = { ...prev };
-        delete next[enrollment.id];
-        return next;
+      await updateEnrollment(enrollmentId, {
+        preSeaCourseId: found.preSeaCourseId,
+        indosMasterId: found.indosMasterId,
+        status: newStatus,
+        remarks: found.remarks
       });
+
+      toast(`Candidate status changed to ${newStatus}.`, "success");
+      const allEnrollments = await getAllEnrollments();
+      const instEnrollments = allEnrollments.filter((e) =>
+        courses.some((c) => c.id === e.preSeaCourseId)
+      );
+      setEnrollments(instEnrollments);
     } catch (err: any) {
-      alert("Failed to update candidate status: " + (err.message || err));
-    } finally {
-      setUpdatingStatuses((prev) => ({ ...prev, [enrollment.id]: false }));
+      toast(err.message || "Failed to update enrollment status.", "error");
     }
   };
 
-  const getSeafarerName = (seafarerId: string) => {
-    return seafarers.find((s) => s.id === seafarerId)?.firstName ?? "Unknown Candidate";
-  };
-
-  const getSeafarerIndos = (seafarerId: string) => {
-    return seafarers.find((s) => s.id === seafarerId)?.indos ?? "N/A";
-  };
-
-  const getCourseName = (courseId: string) => {
-    return courses.find((c) => c.id === courseId)?.name ?? "Unknown Course";
+  const getSeafarerInfo = (seafarerId: string) => {
+    return seafarers.find(s => s.id === seafarerId);
   };
 
   if (loading) {
-    return (
-      <div className="py-24 text-center text-sm text-muted">
-        Syncing institute details with registry...
-      </div>
-    );
+    return <LoadingSkeleton rows={4} type="table" />;
   }
 
   if (error || !institute) {
     return (
-      <div className="py-24 text-center text-sm text-error">
-        {error || "Institute records not found."}{" "}
-        <Link href="/courses" className="text-primary hover:underline ml-1">
-          Return to directory
-        </Link>
-      </div>
+      <EmptyState
+        message={error || "College information could not be resolved."}
+        title="College Profile Error"
+        ctaLabel="Back to Colleges"
+        onCtaClick={() => router.push("/courses")}
+      />
     );
   }
 
+  const filteredCourses = courses.filter((c) =>
+    c.name.toLowerCase().includes(courseSearch.toLowerCase())
+  );
+
+  const filteredCandidates = enrollments
+    .map(e => {
+      const s = getSeafarerInfo(e.indosMasterId);
+      const c = courses.find(cr => cr.id === e.preSeaCourseId);
+      return { enrollment: e, seafarer: s, course: c };
+    })
+    .filter(item => {
+      if (!item.seafarer) return false;
+      const searchStr = candidateSearch.toLowerCase();
+      const matchesName = item.seafarer.firstName.toLowerCase().includes(searchStr);
+      const matchesIndos = item.seafarer.indos.toLowerCase().includes(searchStr);
+      const matchesCourse = item.course?.name.toLowerCase().includes(searchStr) || false;
+      return matchesName || matchesIndos || matchesCourse;
+    });
+
   return (
     <>
-      {/* Header */}
-      <PublicLayoutHeader deps={[institute.id, institute.name]}>
-        <div className="flex flex-col gap-2">
-          <Link href="/courses" className="text-xs text-primary hover:underline inline-flex items-center gap-1.5 font-medium mb-1">
-            &larr; Back to Directory
-          </Link>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-2xl font-serif text-ink">{institute.name}</h1>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase bg-primary/10 text-primary border border-primary/20">
-              Training Academy
-            </span>
-          </div>
-        </div>
+      <PublicLayoutHeader deps={[id, institute.name]}>
+        <PageHeader
+          title={institute.name}
+          subtitle="Maritime Training Academy detail dashboard."
+          backHref="/courses"
+          backLabel="Back to Courses"
+        />
       </PublicLayoutHeader>
 
-      {/* Sidebar Navigation */}
       <PublicLayoutSidebar deps={[activeTab]}>
         <div className="flex flex-col gap-6 mt-4">
-          <nav className="flex flex-col gap-1.5 border-b lg:border-b-0 pb-4 lg:pb-0">
+          <nav className="flex flex-col gap-1.5 font-sans">
             <button
               onClick={() => setActiveTab("courses")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
                 activeTab === "courses"
-                  ? "bg-primary text-on-primary font-semibold shadow-sm"
-                  : "text-muted hover:bg-surface-soft hover:text-ink"
+                  ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
+                  : "text-muted hover:text-ink hover:bg-surface-soft/40"
               }`}
             >
-              Manage Courses
+              Nautical Programs
             </button>
             <button
               onClick={() => setActiveTab("candidates")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
                 activeTab === "candidates"
-                  ? "bg-primary text-on-primary font-semibold shadow-sm"
-                  : "text-muted hover:bg-surface-soft hover:text-ink"
+                  ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
+                  : "text-muted hover:text-ink hover:bg-surface-soft/40"
               }`}
             >
-              View Registered Candidates
+              Enrolled Candidates
             </button>
           </nav>
 
-          <div className="bg-surface-soft border border-hairline rounded-lg p-5 flex flex-col gap-4">
-            <h3 className="text-xs font-semibold tracking-wider text-muted uppercase">Academy Actions</h3>
+          <div className="bg-surface-soft border border-hairline rounded-lg p-5 flex flex-col gap-4 font-sans">
+            <h3 className="text-xs font-semibold tracking-wider text-muted uppercase">College Actions</h3>
             <div className="flex flex-col gap-2">
               <button
-                onClick={handleEditInstClick}
+                onClick={() => setIsEditInstModalOpen(true)}
                 className="w-full h-9 bg-primary text-on-primary font-medium text-xs rounded-md hover:bg-primary-active flex items-center justify-center transition-colors cursor-pointer"
               >
-                Edit Academy Name
+                Edit College Name
               </button>
               <button
-                onClick={handleDeleteInstClick}
+                onClick={() => setIsConfirmDeleteOpen(true)}
                 className="w-full h-9 bg-error/10 text-error font-medium text-xs rounded-md hover:bg-error/20 border border-error/20 flex items-center justify-center transition-colors cursor-pointer"
               >
-                Delete Academy
+                Delete College
               </button>
             </div>
           </div>
         </div>
       </PublicLayoutSidebar>
 
-      {/* Main Content Column */}
-      <div className="flex flex-col gap-6">
-        {activeTab === "courses" ? (
-          // ── MANAGE COURSES PANEL ───────────────────────────────────────────
-          <>
+      <div className="bg-canvas w-full font-sans">
+        <TabBar
+          tabs={[
+            { id: "courses", label: "Program Listings" },
+            { id: "candidates", label: "Enrolled Candidates" }
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+
+        {activeTab === "courses" && (
+          <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex-grow">
-                <input
-                  type="text"
-                  placeholder="Search course listings..."
+                <SearchBar
+                  placeholder="Search programs under this college..."
                   value={courseSearch}
-                  onChange={(e) => setCourseSearch(e.target.value)}
-                  className="w-full text-input px-4 bg-canvas text-ink border border-muted focus:border-primary rounded-md outline-none"
-                  style={{ height: "42px" }}
+                  onChange={setCourseSearch}
                 />
               </div>
               <button
-                onClick={() => {
-                  setFormError(null);
-                  setFormSuccess(null);
-                  setIsCourseModalOpen(true);
-                }}
-                className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-sm transition-colors cursor-pointer flex-shrink-0"
+                onClick={() => setIsCourseModalOpen(true)}
+                className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs tracking-wide uppercase transition-colors cursor-pointer flex-shrink-0"
               >
-                Add Course
+                Register Program
               </button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden">
-                <thead>
-                  <tr className="bg-surface-card border-b border-hairline">
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Course Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Start Date</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline-soft">
-                  {filteredCourses.length === 0 ? (
-                    <tr>
-                      <td colSpan={3} className="px-4 py-8 text-center text-sm text-muted">
-                        No courses offered by this institute.
-                      </td>
+            {filteredCourses.length === 0 ? (
+              <EmptyState message="No programs found under this college." title="No Programs" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden text-xs">
+                  <thead>
+                    <tr className="bg-surface-soft border-b border-hairline text-muted">
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Program Name</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Start Date</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Status</th>
                     </tr>
-                  ) : (
-                    filteredCourses.map((c) => (
-                      <tr 
-                        key={c.id} 
-                        onClick={() => router.push(`/courses/${instSlug}/${toSlug(c.name)}`)}
-                        className="cursor-pointer transition-colors hover:bg-surface-soft/40"
-                      >
-                        <td className="px-4 py-3.5 text-sm font-medium text-body-strong">{c.name}</td>
-                        <td className="px-4 py-3.5 text-sm font-mono text-body-text">{c.startDate}</td>
-                        <td className="px-4 py-3.5 text-sm">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${c.isActive ? "bg-success/10 text-success" : "bg-muted/10 text-muted"}`}>
-                            <span className={`w-1.5 h-1.5 rounded-full ${c.isActive ? "bg-success" : "bg-muted"}`}></span>
-                            {c.isActive ? "Active" : "Inactive"}
-                          </span>
+                  </thead>
+                  <tbody className="divide-y divide-hairline-soft">
+                    {filteredCourses.map((c) => (
+                      <tr key={c.id} className="hover:bg-surface-soft/20 transition-colors">
+                        <td
+                          className="px-4 py-3.5 font-semibold text-body-strong cursor-pointer hover:underline"
+                          onClick={() => router.push(`/courses/${instSlug}/${toSlug(c.name)}`)}
+                        >
+                          {c.name}
+                        </td>
+                        <td className="px-4 py-3.5 font-mono text-muted">{c.startDate}</td>
+                        <td className="px-4 py-3.5">
+                          <StatusBadge status={c.isActive ? "true" : "false"} />
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
-        ) : (
-          // ── VIEW REGISTERED CANDIDATES PANEL ──────────────────────────────────
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden">
-                <thead>
-                  <tr className="bg-surface-card border-b border-hairline">
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">INDOS</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Course</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted">Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-hairline-soft">
-                  {enrollments.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted">
-                        No candidates registered in courses of this academy.
-                      </td>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === "candidates" && (
+          <div className="flex flex-col gap-6">
+            <SearchBar
+              placeholder="Search candidates by name, INDOS registry or course..."
+              value={candidateSearch}
+              onChange={setCandidateSearch}
+            />
+
+            {filteredCandidates.length === 0 ? (
+              <EmptyState message="No candidates enrolled in programs under this college." title="No Candidates" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden text-xs">
+                  <thead>
+                    <tr className="bg-surface-soft border-b border-hairline text-muted">
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Candidate</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">INDOS ID</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Program</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Status</th>
+                      <th className="px-4 py-3 text-right font-semibold uppercase">Actions</th>
                     </tr>
-                  ) : (
-                    enrollments.map((e) => {
-                      const pendingStatus = pendingStatuses[e.id];
-                      const isPending = pendingStatus !== undefined && pendingStatus !== e.status;
-                      const currentVal = pendingStatus ?? e.status;
-
+                  </thead>
+                  <tbody className="divide-y divide-hairline-soft">
+                    {filteredCandidates.map(({ enrollment, seafarer: s, course: c }) => {
+                      if (!s) return null;
                       return (
-                        <tr key={e.id} className="transition-colors hover:bg-surface-soft/40">
-                          <td className="px-4 py-3.5 text-sm font-mono text-ink">{getSeafarerIndos(e.indosMasterId)}</td>
-                          <td className="px-4 py-3.5 text-sm font-medium text-body-strong">{getSeafarerName(e.indosMasterId)}</td>
-                          <td className="px-4 py-3.5 text-sm text-body-text">{getCourseName(e.preSeaCourseId)}</td>
-                          <td className="px-4 py-3.5 text-sm">
-                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              e.status === "COMPLETED"
-                                ? "bg-success/10 text-success"
-                                : e.status === "CANCELLED"
-                                ? "bg-error/10 text-error"
-                                : "bg-primary/10 text-primary"
-                            }`}>
-                              {e.status}
-                            </span>
+                        <tr key={enrollment.id} className="hover:bg-surface-soft/20 transition-colors">
+                          <td
+                            className="px-4 py-3.5 font-semibold text-body-strong cursor-pointer hover:underline"
+                            onClick={() => router.push(`/seafarer/${s.indos}`)}
+                          >
+                            {s.firstName}
                           </td>
-                          <td className="px-4 py-3.5 text-sm">
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={currentVal}
-                                onChange={(event) => {
-                                  const val = event.target.value as "ENROLLED" | "COMPLETED" | "CANCELLED";
-                                  setPendingStatuses((prev) => ({ ...prev, [e.id]: val }));
-                                }}
-                                className="bg-canvas border border-muted focus:border-primary text-ink text-xs rounded-md outline-none px-2 py-1 cursor-pointer"
-                                disabled={updatingStatuses[e.id]}
-                              >
-                                <option value="ENROLLED">Enrolled</option>
-                                <option value="COMPLETED">Completed</option>
-                                <option value="CANCELLED">Cancelled</option>
-                              </select>
-
-                              {isPending && (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    onClick={() => handleStatusChange(e, pendingStatus)}
-                                    disabled={updatingStatuses[e.id]}
-                                    title="Confirm status change"
-                                    className="p-1 text-success hover:bg-success/15 rounded cursor-pointer transition-colors disabled:opacity-50"
-                                  >
-                                    <svg className="w-4 h-4 stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="2.5">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                    </svg>
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      setPendingStatuses((prev) => {
-                                        const next = { ...prev };
-                                        delete next[e.id];
-                                        return next;
-                                      });
-                                    }}
-                                    disabled={updatingStatuses[e.id]}
-                                    title="Cancel"
-                                    className="p-1 text-error hover:bg-error/15 rounded cursor-pointer transition-colors disabled:opacity-50"
-                                  >
-                                    <svg className="w-4 h-4 stroke-current fill-none" viewBox="0 0 24 24" strokeWidth="2.5">
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
+                          <td className="px-4 py-3.5 font-mono text-muted">{s.indos}</td>
+                          <td className="px-4 py-3.5 text-body-text">{c?.name || "—"}</td>
+                          <td className="px-4 py-3.5">
+                            <StatusBadge status={enrollment.status} />
+                          </td>
+                          <td className="px-4 py-3.5 text-right flex justify-end gap-2">
+                            {enrollment.status === "ENROLLED" && (
+                              <>
+                                <button
+                                  onClick={() => handleStatusChange(enrollment.id, "COMPLETED")}
+                                  className="px-2 py-0.5 bg-success/15 hover:bg-success/25 text-success rounded text-[10px] font-bold uppercase cursor-pointer"
+                                >
+                                  Complete
+                                </button>
+                                <button
+                                  onClick={() => handleStatusChange(enrollment.id, "CANCELLED")}
+                                  className="px-2 py-0.5 bg-error/15 hover:bg-error/25 text-error rounded text-[10px] font-bold uppercase cursor-pointer"
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
                           </td>
                         </tr>
                       );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </>
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Add Course Modal */}
-      {isCourseModalOpen && (
-        <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
-          <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
-              <div>
-                <h2 className="text-lg font-serif text-ink">Add New Course</h2>
-                <p className="text-[11px] text-muted mt-0.5">Register a new course under this institute.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsCourseModalOpen(false);
-                  setFormError(null);
-                  setFormSuccess(null);
-                }}
-                className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-              {formError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{formError}</div>}
-              {formSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{formSuccess}</div>}
-
-              <form onSubmit={handleAddCourse} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">COURSE NAME</label>
-                  <input
-                    type="text"
-                    placeholder="Course name (e.g. Pre-Sea Deck Cadet)"
-                    value={courseForm.name}
-                    onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">START DATE</label>
-                  <input
-                    type="date"
-                    value={courseForm.startDate}
-                    onChange={(e) => setCourseForm({ ...courseForm, startDate: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 py-1">
-                  <input
-                    type="checkbox"
-                    id="form-isActive"
-                    checked={courseForm.isActive}
-                    onChange={(e) => setCourseForm({ ...courseForm, isActive: e.target.checked })}
-                    className="w-4 h-4 rounded border-muted text-primary focus:ring-primary accent-primary"
-                  />
-                  <label htmlFor="form-isActive" className="text-xs font-semibold text-body-strong cursor-pointer select-none">
-                    ACTIVE COURSE STATUS
-                  </label>
-                </div>
-
-                <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsCourseModalOpen(false);
-                      setFormError(null);
-                      setFormSuccess(null);
-                    }}
-                    className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    {saving ? "Registering..." : "Save Course"}
-                  </button>
-                </div>
-              </form>
-            </div>
+      {/* Edit College name Modal */}
+      <Modal
+        isOpen={isEditInstModalOpen}
+        onClose={() => setIsEditInstModalOpen(false)}
+        title="Edit College name"
+        subtitle="Modify register name of this institute."
+      >
+        <form onSubmit={handleEditInstitute} className="flex flex-col gap-4 text-xs font-sans">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">TRAINING COLLEGE REGISTERED NAME</label>
+            <input
+              type="text"
+              value={editInstForm.name}
+              onChange={(e) => setEditInstForm({ name: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
           </div>
-        </div>
-      )}
-      {/* Edit Institute Modal */}
-      {isEditInstModalOpen && (
-        <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
-          <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
-              <div>
-                <h2 className="text-lg font-serif text-ink">Edit Academy Details</h2>
-                <p className="text-[11px] text-muted mt-0.5">Modify name of this training academy.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsEditInstModalOpen(false);
-                  setFormError(null);
-                  setFormSuccess(null);
-                }}
-                className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
 
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-              {formError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{formError}</div>}
-              {formSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{formSuccess}</div>}
-
-              <form onSubmit={handleUpdateInstitute} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">ACADEMY NAME</label>
-                  <input
-                    type="text"
-                    placeholder="Academy name (e.g. Pacific Maritime Academy)"
-                    value={editInstForm.name}
-                    onChange={(e) => setEditInstForm({ ...editInstForm, name: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditInstModalOpen(false);
-                      setFormError(null);
-                      setFormSuccess(null);
-                    }}
-                    className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </div>
+          <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setIsEditInstModalOpen(false)}
+              className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50 font-semibold"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
           </div>
-        </div>
-      )}
+        </form>
+      </Modal>
+
+      {/* Register Program Modal */}
+      <Modal
+        isOpen={isCourseModalOpen}
+        onClose={() => setIsCourseModalOpen(false)}
+        title="Register Program"
+        subtitle="Add a pre-sea curriculum to this college."
+      >
+        <form onSubmit={handleCreateCourse} className="flex flex-col gap-4 text-xs font-sans">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">PROGRAM CURRICULUM NAME</label>
+            <input
+              type="text"
+              placeholder="e.g. Diploma in Nautical Science"
+              value={courseForm.name}
+              onChange={(e) => setCourseForm({ ...courseForm, name: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">ACADEMIC START DATE</label>
+            <input
+              type="date"
+              value={courseForm.startDate}
+              onChange={(e) => setCourseForm({ ...courseForm, startDate: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 py-1">
+            <input
+              type="checkbox"
+              id="col-course-isActive"
+              checked={courseForm.isActive}
+              onChange={(e) => setCourseForm({ ...courseForm, isActive: e.target.checked })}
+              className="w-4 h-4 rounded border-muted text-primary focus:ring-primary accent-primary"
+            />
+            <label htmlFor="col-course-isActive" className="text-xs font-semibold text-body-strong cursor-pointer select-none">
+              ACTIVE PROGRAM LISTING
+            </label>
+          </div>
+
+          <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setIsCourseModalOpen(false)}
+              className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50 font-semibold"
+            >
+              {saving ? "Registering..." : "Save Program"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete College Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        onConfirm={handleDeleteInstitute}
+        title="Delete Training College"
+        message="Are you sure you want to delete this training college? This will clear all records and curriculum lists associated."
+        confirmLabel="Confirm Deletion"
+        isDestructive={true}
+      />
     </>
   );
 }

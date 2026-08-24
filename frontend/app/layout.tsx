@@ -25,13 +25,19 @@ export const metadata: Metadata = {
   description: "Seafarer and berth allocation management dashboard",
 };
 
+import { ToastProvider } from "@/components/ui/ToastContext";
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${cormorant.variable} ${inter.variable} ${jetbrains.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <ToastProvider>
+          {children}
+        </ToastProvider>
+      </body>
     </html>
   );
 }

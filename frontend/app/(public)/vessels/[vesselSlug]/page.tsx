@@ -8,6 +8,9 @@ import {
   getAllVessels,
   getAllBerths,
   getAllBerthAllocations,
+  getAllBerthSeafarerAllocations,
+  getAllContracts,
+  getAllIndos,
   createBerth,
   createBerthAllocation,
   updateVessel,
@@ -17,37 +20,55 @@ import {
   VesselResponseDTO,
   BerthResponseDTO,
   BerthAllocationResponseDTO,
+  BerthSeafarerAllocationResponseDTO,
+  ContractResponseDTO,
+  IndosMasterResponseDTO,
   VesselRequestDTO,
   getVesselCompanyId
 } from "@/lib/apiClient";
 import { PublicLayoutHeader, PublicLayoutSidebar } from "../../PublicLayoutClient";
+import {
+  PageHeader,
+  SearchBar,
+  LoadingSkeleton,
+  EmptyState,
+  Modal,
+  ConfirmDialog,
+  StatusBadge,
+  TabBar,
+  InfoRow,
+  useToast
+} from "@/components/ui";
 
-// Helper to filter vessels by company prefix or local storage mapping
-const getVesselCompany = (vessel: VesselResponseDTO, companies: CompanyResponseDTO[]) => {
-  const compId = getVesselCompanyId(vessel.id, vessel.name, companies);
-  return companies.find(c => c.id === compId) || null;
-};
+type TabId = "berths" | "crew";
 
 export default function VesselDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const vesselSlug = params.vesselSlug as string;
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Core records
-  const [company, setCompany] = useState<CompanyResponseDTO | null>(null);
+  // Core entities
   const [vessel, setVessel] = useState<VesselResponseDTO | null>(null);
+  const [company, setCompany] = useState<CompanyResponseDTO | null>(null);
   const [allocations, setAllocations] = useState<BerthAllocationResponseDTO[]>([]);
   const [berths, setBerths] = useState<BerthResponseDTO[]>([]);
 
-  // Navigation
-  const [activeTab, setActiveTab] = useState<"berths">("berths");
+  // Operational entities for tabs
+  const [berthSeafarerAllocations, setBerthSeafarerAllocations] = useState<BerthSeafarerAllocationResponseDTO[]>([]);
+  const [contracts, setContracts] = useState<ContractResponseDTO[]>([]);
+  const [seafarers, setSeafarers] = useState<IndosMasterResponseDTO[]>([]);
+
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<TabId>("berths");
 
   // Modals & forms
   const [isEditVesselModalOpen, setIsEditVesselModalOpen] = useState(false);
   const [isBerthModalOpen, setIsBerthModalOpen] = useState(false);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
 
   const [editVesselForm, setEditVesselForm] = useState<VesselRequestDTO>({
     imo: "",
@@ -62,19 +83,28 @@ export default function VesselDetailPage() {
     endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   });
 
-  const [formError, setFormError] = useState<string | null>(null);
-  const [formSuccess, setFormSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const loadData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [allComps, allVessels, allBerths, allAllocations] = await Promise.all([
+      const [
+        allComps,
+        allVessels,
+        allBerths,
+        allAllocations,
+        allBSAllocations,
+        allContracts,
+        allSeafarers
+      ] = await Promise.all([
         getAllCompanies(),
         getAllVessels(),
         getAllBerths(),
-        getAllBerthAllocations()
+        getAllBerthAllocations(),
+        getAllBerthSeafarerAllocations(),
+        getAllContracts(),
+        getAllIndos()
       ]);
 
       const foundVessel = allVessels.find((v) => toSlug(v.name) === vesselSlug);
@@ -83,9 +113,6 @@ export default function VesselDetailPage() {
         return;
       }
 
-      const foundComp = getVesselCompany(foundVessel, allComps);
-
-      setCompany(foundComp);
       setVessel(foundVessel);
       setEditVesselForm({
         imo: foundVessel.imo,
@@ -94,13 +121,20 @@ export default function VesselDetailPage() {
         isActive: foundVessel.isActive
       });
 
-      // Filter allocations matching this vessel
+      const foundComp = allComps.find(c => c.id === getVesselCompanyId(foundVessel.id, foundVessel.name, allComps));
+      setCompany(foundComp || null);
+
+      // Filter allocations for this vessel
       const vesselAllocations = allAllocations.filter((a) => a.vesselId === foundVessel.id);
       setAllocations(vesselAllocations);
       setBerths(allBerths);
+      setBerthSeafarerAllocations(allBSAllocations);
+      setContracts(allContracts);
+      setSeafarers(allSeafarers);
     } catch (err: any) {
       console.error("Failed to query vessel details", err);
       setError("Failed to query database records for this vessel.");
+      toast("Error loading vessel records", "error");
     } finally {
       setLoading(false);
     }
@@ -115,31 +149,26 @@ export default function VesselDetailPage() {
   const handleUpdateVessel = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vessel) return;
-    setFormError(null);
-    setFormSuccess(null);
 
     if (!editVesselForm.imo || !editVesselForm.name || !editVesselForm.flag) {
-      setFormError("All fields are required.");
+      toast("All fields are required.", "warning");
       return;
     }
 
     setSaving(true);
     try {
-      await updateVessel(vessel.id, {
+      const updated = await updateVessel(vessel.id, {
         imo: editVesselForm.imo.trim(),
         name: editVesselForm.name.trim(),
         flag: editVesselForm.flag.trim(),
         isActive: editVesselForm.isActive
       });
-      setFormSuccess("Vessel updated successfully.");
+      toast("Vessel details updated successfully.", "success");
       const newVesselSlug = toSlug(editVesselForm.name.trim());
-      setTimeout(() => {
-        setFormSuccess(null);
-        setIsEditVesselModalOpen(false);
-        router.push(`/vessels/${newVesselSlug}`);
-      }, 1500);
+      setIsEditVesselModalOpen(false);
+      router.push(`/vessels/${newVesselSlug}`);
     } catch (err: any) {
-      setFormError(err.message || "Failed to update vessel.");
+      toast(err.message || "Failed to update vessel.", "error");
     } finally {
       setSaving(false);
     }
@@ -147,27 +176,21 @@ export default function VesselDetailPage() {
 
   const handleDeleteVessel = async () => {
     if (!vessel) return;
-    if (!confirm("Are you sure you want to delete this fleet vessel?")) return;
-    setSaving(true);
     try {
       await deleteVessel(vessel.id);
-      alert("Vessel deleted successfully.");
+      toast("Vessel record deleted successfully.", "success");
       router.push("/vessels");
     } catch (err: any) {
-      alert(err.message || "Failed to delete vessel.");
-    } finally {
-      setSaving(false);
+      toast(err.message || "Failed to delete vessel.", "error");
     }
   };
 
   const handleAllocateBerth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!vessel) return;
-    setFormError(null);
-    setFormSuccess(null);
 
     if (!berthForm.berthName || !berthForm.startDate || !berthForm.endDate) {
-      setFormError("All fields are required.");
+      toast("All fields are required.", "warning");
       return;
     }
 
@@ -187,66 +210,70 @@ export default function VesselDetailPage() {
         endDate: new Date(berthForm.endDate).toISOString()
       });
 
-      setFormSuccess("Berth registered and allocated successfully!");
+      toast("Berth registered and allocated successfully!", "success");
       setBerths((prev) => [...prev, newBerth]);
       setAllocations((prev) => [...prev, newAllocation]);
-
-      setTimeout(() => {
-        setFormSuccess(null);
-        setIsBerthModalOpen(false);
-        setBerthForm({
-          berthName: "",
-          startDate: new Date().toISOString().split("T")[0],
-          endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
-        });
-      }, 1500);
+      setBerthForm({
+        berthName: "",
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      });
+      setIsBerthModalOpen(false);
     } catch (err: any) {
-      setFormError(err.message || "Failed to register and allocate berth.");
+      toast(err.message || "Failed to register and allocate berth.", "error");
     } finally {
       setSaving(false);
     }
   };
 
+  const getTraineeForBerthAllocation = (berthId: string, allocationId: string) => {
+    const sAlloc = berthSeafarerAllocations.find(sa => sa.berthId === berthId && sa.berthAllocationId === allocationId);
+    if (!sAlloc) return null;
+    return seafarers.find(x => x.id === sAlloc.indosMasterId);
+  };
+
+  // Find all seafarers associated with contracts on this vessel
+  const vesselAllocationIds = allocations.map(a => a.id);
+  const vesselSeafarerAllocations = berthSeafarerAllocations.filter(sa =>
+    sa.berthAllocationId && vesselAllocationIds.includes(sa.berthAllocationId)
+  );
+  const vesselSeafarerIds = vesselSeafarerAllocations.map(sa => sa.indosMasterId);
+
+  const vesselContracts = contracts.filter(c =>
+    vesselSeafarerAllocations.some(sa => sa.id === c.berthSeafarerAllocationId)
+  );
+
   if (loading) {
-    return (
-      <div className="py-24 text-center text-sm text-muted">
-        Loading fleet berth mappings...
-      </div>
-    );
+    return <LoadingSkeleton rows={4} type="table" />;
   }
 
   if (error || !vessel) {
     return (
-      <div className="py-24 text-center">
-        <span className="p-3 bg-error/10 text-error rounded-md text-xs font-semibold">{error || "Record not found"}</span>
-      </div>
+      <EmptyState
+        message={error || "Vessel details could not be resolved."}
+        title="Vessel Registry Error"
+        ctaLabel="Back to Vessels"
+        onCtaClick={() => router.push("/vessels")}
+      />
     );
   }
 
   return (
     <>
-      <PublicLayoutHeader>
-        <div className="flex flex-col gap-2">
-          <Link href="/vessels" className="text-xs text-primary hover:underline font-mono">
-            &larr; Back to Vessels
-          </Link>
-          <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="text-3xl font-serif text-ink">{vessel.name}</h1>
-            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold tracking-wide uppercase ${
-              vessel.isActive ? "bg-success/15 text-success" : "bg-error/15 text-error"
-            }`}>
-              {vessel.isActive ? "Active vessel" : "Inactive vessel"}
-            </span>
-          </div>
-          <span className="font-mono text-xs text-muted-soft">
-            IMO: {vessel.imo} | Flag: {vessel.flag} | Company: {company ? company.name : "Unassigned"}
-          </span>
-        </div>
+      <PublicLayoutHeader deps={[vessel.id, vessel.name, vessel.isActive]}>
+        <PageHeader
+          title={vessel.name}
+          subtitle={`IMO: ${vessel.imo} | Flag: ${vessel.flag} | Carrier: ${company ? company.name : "Unassigned"}`}
+          backHref="/vessels"
+          backLabel="Back to Vessels"
+        >
+          <StatusBadge status={vessel.isActive ? "true" : "false"} />
+        </PageHeader>
       </PublicLayoutHeader>
 
       <PublicLayoutSidebar deps={[activeTab]}>
         <div className="flex flex-col gap-6 mt-4">
-          <nav className="flex flex-col gap-1.5">
+          <nav className="flex flex-col gap-1.5 font-sans">
             <button
               onClick={() => setActiveTab("berths")}
               className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
@@ -257,19 +284,29 @@ export default function VesselDetailPage() {
             >
               Allocated Berths
             </button>
+            <button
+              onClick={() => setActiveTab("crew")}
+              className={`w-full text-left px-4 py-2.5 text-sm rounded-md transition-all cursor-pointer ${
+                activeTab === "crew"
+                  ? "bg-surface-card text-primary font-semibold border-l-2 border-primary"
+                  : "text-muted hover:text-ink hover:bg-surface-soft/40"
+              }`}
+            >
+              Crew Timeline
+            </button>
           </nav>
 
           <button
             onClick={() => setIsBerthModalOpen(true)}
-            className="w-full h-10 bg-primary text-on-primary font-medium text-xs rounded-md hover:bg-primary-active flex items-center justify-center gap-2 transition-colors cursor-pointer"
+            className="w-full h-10 bg-primary text-on-primary font-medium text-xs tracking-wide uppercase rounded-md hover:bg-primary-active flex items-center justify-center gap-2 transition-colors cursor-pointer"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
             </svg>
-            Allocate New Berth
+            Allocate Berth
           </button>
 
-          <div className="bg-surface-soft border border-hairline rounded-lg p-5 flex flex-col gap-4">
+          <div className="bg-surface-soft border border-hairline rounded-lg p-5 flex flex-col gap-4 font-sans">
             <h3 className="text-xs font-semibold tracking-wider text-muted uppercase">Vessel Actions</h3>
             <div className="flex flex-col gap-2">
               <button
@@ -279,7 +316,7 @@ export default function VesselDetailPage() {
                 Edit Vessel Details
               </button>
               <button
-                onClick={handleDeleteVessel}
+                onClick={() => setIsConfirmDeleteOpen(true)}
                 className="w-full h-9 bg-error/10 text-error font-medium text-xs rounded-md hover:bg-error/20 border border-error/20 flex items-center justify-center transition-colors cursor-pointer"
               >
                 Delete Vessel
@@ -289,244 +326,268 @@ export default function VesselDetailPage() {
         </div>
       </PublicLayoutSidebar>
 
-      <div className="bg-canvas w-full">
-        <div className="flex flex-col gap-6">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse bg-surface-card border border-hairline rounded-lg overflow-hidden">
-              <thead>
-                <tr className="bg-surface-soft border-b border-hairline text-[11px] text-muted">
-                  <th className="px-6 py-3.5 text-left font-semibold uppercase">Berth Name</th>
-                  <th className="px-6 py-3.5 text-left font-semibold uppercase">Start Date</th>
-                  <th className="px-6 py-3.5 text-left font-semibold uppercase">End Date</th>
-                  <th className="px-6 py-3.5 text-left font-semibold uppercase">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline text-xs">
-                {allocations.map((a) => {
-                  const berthName = berths.find((b) => b.id === a.berthId)?.berthName ?? "Unknown Berth";
-                  const startStr = new Date(a.startDate).toLocaleDateString();
-                  const endStr = new Date(a.endDate).toLocaleDateString();
-                  
-                  const now = Date.now();
-                  const startMs = new Date(a.startDate).getTime();
-                  const endMs = new Date(a.endDate).getTime();
-                  const isCurrent = now >= startMs && now <= endMs;
+      <div className="bg-canvas w-full font-sans">
+        <TabBar
+          tabs={[
+            { id: "berths", label: "Allocated Berths" },
+            { id: "crew", label: "Crew Timeline History" }
+          ]}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
 
-                  return (
-                    <tr key={a.id} className="hover:bg-surface-soft/20 transition-colors">
-                      <td className="px-6 py-4 font-semibold text-body-strong">{berthName}</td>
-                      <td className="px-6 py-4 font-mono text-muted">{startStr}</td>
-                      <td className="px-6 py-4 font-mono text-muted">{endStr}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase ${
-                          isCurrent ? "bg-success/15 text-success" : "bg-muted/15 text-muted"
-                        }`}>
-                          {isCurrent ? "Current Allocation" : "Expired/Scheduled"}
-                        </span>
-                      </td>
+        {activeTab === "berths" && (
+          <div className="flex flex-col gap-6">
+            {allocations.length === 0 ? (
+              <EmptyState message="No training berths are currently allocated to this vessel." title="No Allocated Berths" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden text-xs">
+                  <thead>
+                    <tr className="bg-surface-soft border-b border-hairline text-muted">
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Berth Name</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Active Trainee</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Start Date</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">End Date</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Status</th>
                     </tr>
-                  );
-                })}
-                {allocations.length === 0 && (
-                  <tr>
-                    <td colSpan={4} className="px-6 py-12 text-center text-muted">
-                      No berths currently registered/allocated to this vessel.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-hairline-soft">
+                    {allocations.map((a) => {
+                      const berthName = berths.find((b) => b.id === a.berthId)?.berthName ?? "Unknown Berth";
+                      const trainee = getTraineeForBerthAllocation(a.berthId, a.id);
+
+                      const now = Date.now();
+                      const startMs = new Date(a.startDate).getTime();
+                      const endMs = new Date(a.endDate).getTime();
+                      const isCurrent = now >= startMs && now <= endMs;
+
+                      return (
+                        <tr key={a.id} className="hover:bg-surface-soft/20 transition-colors">
+                          <td className="px-4 py-3.5 font-semibold text-body-strong">{berthName}</td>
+                          <td className="px-4 py-3.5 text-body-text">
+                            {trainee ? (
+                              <Link href={`/seafarer/${trainee.indos}`} className="text-primary hover:underline font-semibold">
+                                {trainee.firstName} ({trainee.indos})
+                              </Link>
+                            ) : (
+                              <span className="text-muted italic">Unassigned</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-muted">{a.startDate.split("T")[0]}</td>
+                          <td className="px-4 py-3.5 font-mono text-muted">{a.endDate.split("T")[0]}</td>
+                          <td className="px-4 py-3.5">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              isCurrent ? "bg-success/15 text-success" : "bg-muted/15 text-muted"
+                            }`}>
+                              {isCurrent ? "Active Allocation" : "Expired / Scheduled"}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        </div>
+        )}
+
+        {activeTab === "crew" && (
+          <div className="flex flex-col gap-6">
+            {vesselContracts.length === 0 ? (
+              <EmptyState message="No seafarer crew training contracts logged on this vessel." title="No Crew Timeline" />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse bg-canvas border border-hairline rounded-lg overflow-hidden text-xs">
+                  <thead>
+                    <tr className="bg-surface-soft border-b border-hairline text-muted">
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Crew Member</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">INDOS ID</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Planned Dates</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Actual Sign On/Off</th>
+                      <th className="px-4 py-3 text-left font-semibold uppercase">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline-soft">
+                    {vesselContracts.map((c) => {
+                      const s = seafarers.find(x => x.id === c.indosMasterId);
+                      if (!s) return null;
+                      return (
+                        <tr key={c.id} className="hover:bg-surface-soft/20 transition-colors">
+                          <td className="px-4 py-3.5">
+                            <Link href={`/seafarer/${s.indos}`} className="text-primary hover:underline font-semibold">
+                              {s.firstName}
+                            </Link>
+                          </td>
+                          <td className="px-4 py-3.5 font-mono text-muted">{s.indos}</td>
+                          <td className="px-4 py-3.5 font-mono text-muted">
+                            {c.signOnDate.split("T")[0]} &rarr; {c.signOffDate.split("T")[0]}
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <div className="flex flex-col gap-0.5">
+                              <span>On: {c.actualSignOnDate ? c.actualSignOnDate.split("T")[0] : <span className="text-muted italic">Pending</span>}</span>
+                              <span>Off: {c.actualSignOffDate ? c.actualSignOffDate.split("T")[0] : <span className="text-muted italic">Pending</span>}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3.5">
+                            <StatusBadge status={c.status || "DRAFT"} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Edit Vessel Modal */}
-      {isEditVesselModalOpen && (
-        <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
-          <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
-              <div>
-                <h2 className="text-lg font-serif text-ink">Edit Vessel Details</h2>
-                <p className="text-[11px] text-muted mt-0.5">Modify information for this fleet vessel.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsEditVesselModalOpen(false);
-                  setFormError(null);
-                  setFormSuccess(null);
-                }}
-                className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-              {formError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{formError}</div>}
-              {formSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{formSuccess}</div>}
-
-              <form onSubmit={handleUpdateVessel} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">VESSEL NAME</label>
-                  <input
-                    type="text"
-                    value={editVesselForm.name}
-                    onChange={(e) => setEditVesselForm({ ...editVesselForm, name: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">IMO NUMBER</label>
-                  <input
-                    type="text"
-                    value={editVesselForm.imo}
-                    onChange={(e) => setEditVesselForm({ ...editVesselForm, imo: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">FLAG STATE</label>
-                  <input
-                    type="text"
-                    value={editVesselForm.flag}
-                    onChange={(e) => setEditVesselForm({ ...editVesselForm, flag: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="editVesselIsActive"
-                    checked={editVesselForm.isActive}
-                    onChange={(e) => setEditVesselForm({ ...editVesselForm, isActive: e.target.checked })}
-                    className="w-4 h-4 rounded border-muted text-primary focus:ring-primary accent-primary"
-                  />
-                  <label htmlFor="editVesselIsActive" className="text-xs font-semibold text-body-strong cursor-pointer select-none">
-                    Is active vessel
-                  </label>
-                </div>
-
-                <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditVesselModalOpen(false);
-                      setFormError(null);
-                      setFormSuccess(null);
-                    }}
-                    className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    {saving ? "Saving..." : "Save Changes"}
-                  </button>
-                </div>
-              </form>
-            </div>
+      <Modal
+        isOpen={isEditVesselModalOpen}
+        onClose={() => setIsEditVesselModalOpen(false)}
+        title="Edit Vessel Details"
+        subtitle="Modify information for this fleet vessel."
+      >
+        <form onSubmit={handleUpdateVessel} className="flex flex-col gap-4 text-xs font-sans">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">VESSEL REGISTER NAME</label>
+            <input
+              type="text"
+              value={editVesselForm.name}
+              onChange={(e) => setEditVesselForm({ ...editVesselForm, name: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
           </div>
-        </div>
-      )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">IMO NUMBER</label>
+            <input
+              type="text"
+              value={editVesselForm.imo}
+              onChange={(e) => setEditVesselForm({ ...editVesselForm, imo: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">FLAG STATE REGISTRY</label>
+            <input
+              type="text"
+              value={editVesselForm.flag}
+              onChange={(e) => setEditVesselForm({ ...editVesselForm, flag: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2 py-1">
+            <input
+              type="checkbox"
+              id="edit-vessel-isActive"
+              checked={editVesselForm.isActive}
+              onChange={(e) => setEditVesselForm({ ...editVesselForm, isActive: e.target.checked })}
+              className="w-4 h-4 rounded border-muted text-primary focus:ring-primary accent-primary"
+            />
+            <label htmlFor="edit-vessel-isActive" className="text-xs font-semibold text-body-strong cursor-pointer select-none">
+              ACTIVE SERVICE REGISTERED
+            </label>
+          </div>
+
+          <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setIsEditVesselModalOpen(false)}
+              className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50 font-semibold"
+            >
+              {saving ? "Saving..." : "Save Changes"}
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Allocate Berth Modal */}
-      {isBerthModalOpen && (
-        <div className="fixed inset-0 z-50 w-screen h-screen flex items-center justify-center p-4 bg-ink/40 backdrop-blur-xs transition-opacity duration-300">
-          <div className="relative w-full max-w-md bg-surface-card border border-hairline rounded-lg shadow-xl overflow-hidden flex flex-col max-h-[90vh]" style={{ width: "100%", maxWidth: "448px" }}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-hairline bg-surface-soft">
-              <div>
-                <h2 className="text-lg font-serif text-ink">Allocate New Berth</h2>
-                <p className="text-[11px] text-muted mt-0.5">Register a new berth and allocate it to this vessel.</p>
-              </div>
-              <button
-                onClick={() => {
-                  setIsBerthModalOpen(false);
-                  setFormError(null);
-                  setFormSuccess(null);
-                }}
-                className="text-muted hover:text-ink transition-colors p-1 cursor-pointer"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-4">
-              {formError && <div className="p-3 bg-error/10 text-error rounded-md text-xs font-medium border border-error/20">{formError}</div>}
-              {formSuccess && <div className="p-3 bg-success/10 text-success rounded-md text-xs font-medium border border-success/20">{formSuccess}</div>}
-
-              <form onSubmit={handleAllocateBerth} className="flex flex-col gap-4">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">BERTH NAME</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Berth North-03"
-                    value={berthForm.berthName}
-                    onChange={(e) => setBerthForm({ ...berthForm, berthName: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">START DATE</label>
-                  <input
-                    type="date"
-                    value={berthForm.startDate}
-                    onChange={(e) => setBerthForm({ ...berthForm, startDate: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-body-strong">END DATE</label>
-                  <input
-                    type="date"
-                    value={berthForm.endDate}
-                    onChange={(e) => setBerthForm({ ...berthForm, endDate: e.target.value })}
-                    className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
-                    style={{ height: "40px" }}
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsBerthModalOpen(false);
-                      setFormError(null);
-                      setFormSuccess(null);
-                    }}
-                    className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
-                  >
-                    {saving ? "Saving..." : "Allocate"}
-                  </button>
-                </div>
-              </form>
-            </div>
+      <Modal
+        isOpen={isBerthModalOpen}
+        onClose={() => setIsBerthModalOpen(false)}
+        title="Allocate New Berth"
+        subtitle="Register a new berth and allocate it to this vessel."
+      >
+        <form onSubmit={handleAllocateBerth} className="flex flex-col gap-4 text-xs font-sans">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">BERTH CURRICULUM NAME</label>
+            <input
+              type="text"
+              placeholder="e.g. Berth North-03"
+              value={berthForm.berthName}
+              onChange={(e) => setBerthForm({ ...berthForm, berthName: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
           </div>
-        </div>
-      )}
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">ALLOCATION START DATE</label>
+            <input
+              type="date"
+              value={berthForm.startDate}
+              onChange={(e) => setBerthForm({ ...berthForm, startDate: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold text-body-strong">ALLOCATION END DATE</label>
+            <input
+              type="date"
+              value={berthForm.endDate}
+              onChange={(e) => setBerthForm({ ...berthForm, endDate: e.target.value })}
+              className="w-full text-input px-3.5 bg-canvas border border-muted focus:border-primary rounded-md outline-none text-sm"
+              style={{ height: "40px" }}
+            />
+          </div>
+
+          <div className="pt-4 border-t border-hairline flex justify-end gap-3 mt-2">
+            <button
+              type="button"
+              onClick={() => setIsBerthModalOpen(false)}
+              className="h-10 px-4 bg-surface-soft text-body-strong font-medium rounded-md hover:bg-surface-cream-strong border border-hairline inline-flex items-center justify-center text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="h-10 px-5 bg-primary text-on-primary font-medium rounded-md hover:bg-primary-active inline-flex items-center justify-center text-xs transition-colors cursor-pointer disabled:opacity-50 font-semibold"
+            >
+              {saving ? "Allocating..." : "Allocate"}
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Delete Vessel Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        onConfirm={handleDeleteVessel}
+        title="Confirm Vessel Deletion"
+        message="Are you sure you want to delete this fleet vessel registry? This will clear all its allocated berths and crew contracts history records permanently."
+        confirmLabel="Delete permanently"
+        isDestructive={true}
+      />
     </>
   );
 }
